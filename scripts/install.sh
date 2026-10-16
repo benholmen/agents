@@ -16,22 +16,19 @@ Usage: install.sh [--rules-only]
 
 Installs this repository for both runtimes.
 
-Claude reads directories of rules, output styles, and skills, so each one
-links per entry:
+Claude reads directories of rules and skills, so each one links per entry:
 
   ~/.claude/rules/<name>.md         -> rules/<name>.md          (per file)
-  ~/.claude/output-styles/<name>.md -> output-styles/<name>.md   (per file)
   ~/.claude/skills/<name>           -> skills/<name>/            (per skill)
   ~/.claude/references              -> references/               (whole directory)
 
 Codex reads skills from ~/.agents/skills and follows symlinks, so those link
 the same way. It reads instructions from a single file with no include
-mechanism, so the rules and the output styles are concatenated instead of
-linked:
+mechanism, so the rules are concatenated instead of linked:
 
   ~/.agents/skills/<name>       -> skills/<name>/         (per skill)
   ~/.agents/references          -> references/            (whole directory)
-  ~/.codex/AGENTS.md             = rules/*.md + output-styles/*.md (generated)
+  ~/.codex/AGENTS.md             = rules/*.md (generated)
 
 Rules and skills are linked one at a time, so the directories stay real ones
 you own. Anything else you keep there is left alone, and nothing you create
@@ -42,15 +39,10 @@ provisioning script can call it without knowing where this repo lives:
 
   ~/.claude/bin/wt-clone.sh     -> scripts/wt-clone.sh
 
-The install also sets "outputStyle": "prose-discipline" in
-~/.claude/settings.json. That key selects the prose style for every Claude
-session. An outputStyle you set yourself is left alone, and the step is
-skipped when jq is absent.
-
-Re-run after adding or renaming a file. The per-entry links -- rules, output
-styles, and skills -- are pruned once their source has gone, and nothing else
-is touched. The two direct links, references/ and bin/wt-clone.sh, are not
-pruned, so renaming either source leaves the old link dangling.
+Re-run after adding or renaming a file. The per-entry links -- rules and
+skills -- are pruned once their source has gone, and nothing else is touched.
+The two direct links, references/ and bin/wt-clone.sh, are not pruned, so
+renaming either source leaves the old link dangling.
 
 A generated ~/.codex/AGENTS.md is the one file this repository writes rather
 than links, because Codex gives it no other shape. An existing file that we
@@ -157,10 +149,9 @@ link_entries() {
   shopt -u nullglob
 }
 
-# Codex reads one instructions file and resolves no includes, so the rules and
-# the output styles are concatenated rather than linked. Frontmatter is
-# stripped: Codex has no use for it, and a stray --- fence renders as a
-# horizontal rule.
+# Codex reads one instructions file and resolves no includes, so the rules are
+# concatenated rather than linked. Frontmatter is stripped: Codex has no use
+# for it, and a stray --- fence renders as a horizontal rule.
 generate_codex_rules() {
   local out="${CODEX_DEST}/AGENTS.md"
   mkdir -p "${CODEX_DEST}"
@@ -173,10 +164,10 @@ generate_codex_rules() {
 
   {
     echo "${GEN_MARKER}"
-    echo "<!-- source: ${REPO_ROOT}/{rules,output-styles} -- regenerate with scripts/install.sh -->"
+    echo "<!-- source: ${REPO_ROOT}/{rules} -- regenerate with scripts/install.sh -->"
     echo ""
     shopt -s nullglob
-    for src in "${REPO_ROOT}"/rules/*.md "${REPO_ROOT}"/output-styles/*.md; do
+    for src in "${REPO_ROOT}"/rules/*.md; do
       awk 'NR==1 && /^---$/ {fm=1; next} fm && /^---$/ {fm=0; next} !fm' "${src}"
       echo ""
     done
@@ -184,62 +175,6 @@ generate_codex_rules() {
   } > "${out}"
 
   echo "  generated: .codex/AGENTS.md ($(wc -l < "${out}" | tr -d ' ') lines)"
-}
-
-# Claude reads the selected style from settings.json, which is yours to own, so
-# a value you already set is kept rather than replaced.
-select_output_style() {
-  local f="${DEST}/settings.json"
-
-  if ! command -v jq >/dev/null 2>&1; then
-    echo "  jq not found -- cannot select the output style"
-    echo "  run /config and pick prose-discipline, or add"
-    echo '  "outputStyle": "prose-discipline" to settings.json'
-    return
-  fi
-
-  if [[ ! -f "${f}" ]] && ! echo '{}' > "${f}" 2>/dev/null; then
-    echo "  cannot create settings.json -- skipping the output style"
-    echo "  pick prose-discipline in /config instead"
-    return
-  fi
-
-  if ! jq -e 'type == "object"' "${f}" >/dev/null 2>&1; then
-    echo "  settings.json is not a JSON object -- skipping the output style"
-    echo "  fix it and re-run, or pick prose-discipline in /config"
-    return
-  fi
-
-  local current
-  current="$(jq -r '.outputStyle // ""' "${f}")"
-
-  if [[ "${current}" == "prose-discipline" ]]; then
-    echo "  already selected: outputStyle"
-    return
-  fi
-
-  if [[ -n "${current}" ]]; then
-    echo "  kept your outputStyle=${current}"
-    echo "  -- set it to prose-discipline in /config"
-    return
-  fi
-
-  local tmp
-  if ! tmp="$(mktemp "${f}.XXXXXX")"; then
-    echo "  cannot write in ${DEST} -- skipping the output style"
-    return
-  fi
-
-  # cat rather than mv: it writes through a symlink and keeps the mode and owner.
-  if jq '. + {outputStyle: "prose-discipline"}' "${f}" > "${tmp}" \
-     && cat "${tmp}" > "${f}"; then
-    rm -f "${tmp}"
-    echo "  selected: outputStyle=prose-discipline"
-    echo "  (start a new claude session to load it)"
-  else
-    rm -f "${tmp}"
-    echo "  could not write settings.json -- pick prose-discipline in /config"
-  fi
 }
 
 # Regenerate after the tree changes, so a committed rule edit reaches Codex
@@ -298,8 +233,6 @@ mkdir -p "${DEST}"
 
 echo "Installing for Claude..."
 link_entries rules files
-link_entries output-styles files
-select_output_style
 link_entries skills dirs
 link "${REPO_ROOT}/references" "${DEST}/references"
 if [[ -L "${DEST}/bin" || ( -e "${DEST}/bin" && ! -d "${DEST}/bin" ) ]]; then
@@ -336,11 +269,31 @@ elif [[ -L "${DEST}/commands" ]] && [[ "$(readlink "${DEST}/commands")" == "${RE
   echo "  removed superseded commands/ directory link"
 fi
 
+old_style="${DEST}/output-styles/prose-discipline.md"
+if [[ -L "${old_style}" ]] \
+   && [[ "$(readlink "${old_style}")" == "${REPO_ROOT}/output-styles/prose-discipline.md" ]]; then
+  rm -f "${old_style}"
+  echo "  removed superseded output style link: output-styles/prose-discipline.md"
+  rmdir "${DEST}/output-styles" 2>/dev/null && echo "  removed empty output-styles/"
+fi
+
+settings="${DEST}/settings.json"
+if command -v jq >/dev/null 2>&1 && [[ -f "${settings}" ]] \
+   && jq -e 'type == "object" and .outputStyle == "prose-discipline"' "${settings}" >/dev/null 2>&1; then
+  tmp=""
+  if tmp="$(mktemp "${settings}.XXXXXX")" \
+     && jq 'del(.outputStyle)' "${settings}" > "${tmp}" \
+     && cat "${tmp}" > "${settings}"; then
+    echo "  removed superseded outputStyle=prose-discipline from settings.json"
+  else
+    echo "  could not write settings.json -- remove its outputStyle key yourself"
+  fi
+  [[ -z "${tmp}" ]] || rm -f "${tmp}"
+fi
+
 echo ""
 echo "Installed for both runtimes. Rules apply to every session; skills are"
 echo "slash commands on Claude and \$-invoked skills on Codex."
-echo "Claude's prose style lives in the outputStyle key of"
-echo "your ~/.claude/settings.json. Start a new claude session to load it."
 echo "/research, /plan, /implement, /critique, /retro, /worktree, /stash and /recall"
 echo "require the Solo MCP server."
 echo "/stash and /recall additionally require a tracker MCP (see references/)."

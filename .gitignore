@@ -2,7 +2,3 @@
 Thumbs.db
 *.swp
 *~
-
-# Vale: ignore synced style packages, keep our hand-authored STE style
-styles/*
-!styles/STE/

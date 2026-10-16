@@ -1,6 +1,0 @@
-extends: existence
-message: "Expand the contraction '%s'."
-level: error
-ignorecase: true
-raw:
-  - '\b(\w+[''’](t|ll|ve|re|m|d)|(it|he|she|that|there|what|who|here|let)[''’]s)\b'

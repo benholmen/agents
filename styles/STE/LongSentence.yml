@@ -1,6 +1,0 @@
-extends: occurrence
-message: "Sentence exceeds the 20-word procedural cap (found %d words)."
-level: warning
-scope: sentence
-token: '\b\w+(?:-\w+)*\b'
-max: 20

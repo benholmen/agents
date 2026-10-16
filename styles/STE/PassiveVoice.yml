@@ -1,7 +1,0 @@
-extends: sequence
-message: "'%s' is passive voice. Name the actor and use the active voice."
-level: warning
-ignorecase: true
-tokens:
-  - pattern: '\b(am|is|are|was|were|be|been|being)\b'
-  - tag: VBN
