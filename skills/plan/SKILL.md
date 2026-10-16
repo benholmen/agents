@@ -6,8 +6,7 @@ argument-hint: "[topic | research/<slug> | recall/<issue-ref> | paths]"
 
 # Plan
 
-Produce an implementation plan grounded in research, shaped by interrogating the user. Be
-skeptical, thorough, and collaborative.
+Produce an implementation plan grounded in research, shaped by interrogating the user.
 
 Three gates: **scope**, **grilling**, **approval**. The output is exactly one artifact — a
 plan scratchpad. It leads with the plan and keeps the research in an appendix. This skill

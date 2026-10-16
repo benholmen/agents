@@ -4,7 +4,7 @@ description: Comments are disallowed by default; after the implementation, propo
 
 # Comment discipline
 
-Code states what it does. This rule **disallows a comment by default**, and you never add one on your own judgment. You finish the implementation first. Then you assess the finished code, and you propose the few comments that pass every test. The user approves each one before it reaches the code. Every unapproved comment goes out of date and then misleads the next reader. `output-styles/prose-discipline.md` sets an artifact's length by its purpose, so this rule governs artifact existence instead.
+Code states what it does. This rule **disallows a comment by default**, and you never add one on your own judgment. You finish the implementation first. Then you assess the finished code, and you propose the few comments that pass every test. The user approves each one before it reaches the code. Every unapproved comment goes out of date and then misleads the next reader. This rule governs whether a comment exists.
 
 ## Rule of thumb
 

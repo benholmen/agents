@@ -207,8 +207,7 @@ pad**:
     scratchpad; when stuck, record and stop
   ## Tool guidance  per finding: severity (bug | risk | nit), location (file:line), claim,
     a concrete failure or a statement that none exists, and a fix; never suggest a feature,
-    a refactor, or scope growth; never say "add tests" without naming the untested path;
-    be specific and harsh — vague concerns are noise
+    a refactor, or scope growth; never say "add tests" without naming the untested path
   ## Output format  write to the scratchpad step 1 resolved
   ## Completion     timer_set per `solo-agent-orchestration`'s Workers signal completion
 ```
