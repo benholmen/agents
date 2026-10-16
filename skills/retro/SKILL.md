@@ -108,9 +108,10 @@ sub-agent mechanism.
 Build the slug first — `date +%Y-%m-%dt%H%M` plus a short topic, such as
 `2026-08-24t0930-escalations`. Workers name their pads under it, and step 3 reuses it.
 
-Resolve the runtime once with `list_agent_tools`, and read `references/runtime-<tool_type>.md` for
-the arguments it needs. Never write a launch argument from memory. Call `whoami` and keep the
-returned `process_id` — every worker needs it to signal back.
+Resolve the runtime once with `list_agent_tools`, and use the host runtime, per
+`solo-agent-orchestration`. Read `references/runtime-<tool_type>.md` for the arguments it needs.
+Never write a launch argument from memory. Call `whoami` and keep the returned `process_id` —
+every worker needs it to signal back.
 
 ```
 spawn_agent(agent_tool_id=<id>, name="retro-<area-slug>", extra_args=[

@@ -32,6 +32,9 @@ completion — see [Escalation](#escalation).
 
 Read the pad fully. If none exists, send the user to `/plan`.
 
+The pad's `### References` names the `Worker runtime:`. With none named, use the host runtime, per
+`solo-agent-orchestration`.
+
 With no plan pad named, list the active pads via `scratchpad_list(tags=["plan"])` and ask which
 one. That opens a `Deciding` gate, per `rules/chat-vocabulary.md`, and a caller never reaches it.
 
@@ -85,8 +88,8 @@ Skip anything the `/plan` fork already confirmed — do not re-ask what the user
    rules that turn file overlap into a wave order.
 4. **Assign each task a model and effort tier.** A task does not inherit these from the session.
    Judge by what the task demands. A mechanical edit against precise line references is not a
-   contract-preserving rewrite, and the two should not cost the same. `list_agent_tools` resolves
-   the runtime, and model and effort vary within it.
+   contract-preserving rewrite, and the two should not cost the same. Every task runs on the
+   worker runtime `## Input` resolved, and model and effort vary within it.
 5. **Gate the roster.** This is an approval stop, not an announcement. Milestones and their PR
    titles come first. Waves and tiers come second, inside the milestone that holds them.
 
@@ -116,6 +119,7 @@ Skip anything the `/plan` fork already confirmed — do not re-ask what the user
               Add stacked-PR guidance to a general rule without turning it
               into an appendix.
 
+     Workers: <runtime> — from the plan, or the host runtime.
      Critique per milestone: <models> — from the plan.
      Sandbox: <runtime> cannot deny a worker's git writes.
    ```
@@ -132,17 +136,16 @@ Skip anything the `/plan` fork already confirmed — do not re-ask what the user
    The roster is where a milestone that does two things, or two milestones that should be one,
    becomes obvious.
 
-   **The critique roster comes from the plan.** `/plan` records it under `### References`, and
-   `--critique` overrides that. Restate it in this gate as a line the user can change, and do not
-   ask again. One run holds one roster, or nobody can compare its milestone findings. Ask only
-   where neither the argument nor the pad names one, and then ask inside this gate. One stop, not
-   two. `list_agent_tools` resolves the enabled runtimes. Never hardcode a roster.
+   **Both runtime lines come from the plan.** `/plan` records them under `### References`, and
+   `--critique` overrides the critique roster. Restate both in this gate as lines the user can
+   change, and ask nothing else. With no roster in the pad or `--critique`, use the host runtime,
+   per `solo-agent-orchestration`.
 
-   **Disclose a runtime that cannot deny a worker's git writes.** `rules/solo-agent-orchestration.md`
+   **Disclose a worker runtime that cannot deny git writes.** `rules/solo-agent-orchestration.md`
    carries the posture, and the adapter names what each runtime can enforce. Read both before you
    propose a runtime. Where one cannot deny those writes, include the `Sandbox` line above and
    name the exposure. Two workers in one tree cross-commit each other's work. Omit that line where
-   every runtime in the roster denies them. Do not restate a flag, and never promise a denial the
+   the worker runtime denies them. Do not restate a flag, and never promise a denial the
    roster cannot give.
 6. **Create the todos** — one per approved task, tagged with its milestone. The body carries the
    **task spec**: the slices it covers, their files, their verification, and their proof
@@ -153,7 +156,7 @@ Skip anything the `/plan` fork already confirmed — do not re-ask what the user
                tags=["plan:<slug>", "milestone:<m>", "project:<repo>", "task:<letter>"])
    todo_add_blocker(todo_id=<dependent>, blocker_id=<prerequisite>)
    ```
-   Keys and tags are lowercase. Lowercase any slug that carries an uppercase timestamp.
+   Keys and tags are lowercase.
 
    **Every automated check must be able to fail.** Run each check against the pre-change tree
    before you write it into the spec, and record the output there. A check that already passes
@@ -232,10 +235,10 @@ The waves inside one milestone still run their tasks concurrently — that is st
    Without `--base`, `/critique` falls back to the default branch and reviews the predecessor's
    diff as this milestone's. It then re-raises findings the user already settled.
 
-   Use the roster the plan supplied, in every invocation. `/critique` does not ask again.
+   Every invocation uses the critique roster the gate approved.
 5. **Apply the filter and present what survives.** `/critique` owns the filter, the ledger, and
-   the presentation of a finding. Point at it and add nothing. Fix no finding unilaterally. Each
-   repository's invocation returns its own ledger, so present them grouped by repository.
+   the presentation of a finding. Point at it and add nothing. Each repository's invocation
+   returns its own ledger, so present them grouped by repository.
 
    **Commit the remedies.** `/critique` applies each accepted fix in this milestone's worktrees,
    and it leaves them uncommitted. Commit them here, once per repository, before the push gate:
@@ -266,7 +269,7 @@ The waves inside one milestone still run their tasks concurrently — that is st
    ```
    /critique --integration <slug> --plan <the plan pad>
    ```
-   It runs the four integration lenses with the roster the plan supplied. One of them is the
+   It runs the four integration lenses with the same critique roster. One of them is the
    reason this step exists: did every slice the plan declared land in some milestone? A
    per-milestone critique sees one milestone's diff, so it cannot answer that.
 

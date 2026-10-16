@@ -50,6 +50,10 @@ plain clone.
 **Solo project:** run `list_projects` and use **whichever project is currently selected**. No
 path matching, no assumed name. State it in the gate.
 
+**Runtimes:** `Workers:` and `Critique:` both default to the host runtime, per
+`solo-agent-orchestration`. The user may change either one to enabled runtimes. Write both to the
+pad's `### References`.
+
 **Target repos:** infer, and show your evidence for each. Draw on the current repo and on the
 repos a research pad's target list names. Draw on repos implied by `file:line` references in
 findings, and on the `path` of each known Solo project. Say what you excluded and why.
@@ -72,6 +76,8 @@ low across twenty runs.
 Before I investigate — confirm or adjust:
 
   Solo project: <name>  (<path>)
+  Workers:      <host runtime>   (change to any enabled runtime)
+  Critique:     <host runtime>   (change to any set of enabled runtimes)
 
   Repos in scope:
     <repo>  ─ <evidence>                    <N> commits behind <default>
@@ -95,18 +101,16 @@ Accept this scope, or tell me which repo or question to add or cut.
 ## Research phase
 
 Run the confirmed investigation following `/research`, including its worker protocol. Spawn one
-Solo agent per area and join them with an idle timer, per `solo-agent-orchestration`. Workers
-document what exists and write only their own per-area scratchpad; you own the plan pad.
+Solo agent per area, on the gate A `Workers:` runtime. Workers signal the join, and the idle timer
+is the fallback, per `solo-agent-orchestration`. Workers document what exists and write only
+their own per-area scratchpad; you own the plan pad.
 
 **If the user supplied a standalone research pad:** absorb its content into the plan pad under
 `### Research` in the appendix. Then `scratchpad_archive` the source. The archive hides the pad
 without deleting it, so the pad stays recoverable. Add anything new your investigation found.
 
 **If the user supplied a retro pad:** absorb its findings and its `## Proposed changes` the same
-way, and **do not archive it**. The next `/retro` run reads that pad's `## Corpus scope` to learn
-what an earlier run examined. Archiving hides it from the `scratchpad_list(tags=["retro"])` that
-looks for it, so the next run re-examines the same sessions. `skills/retro/SKILL.md` states that
-reason once, and this is the one input this skill leaves active.
+way, and **do not archive it**. `skills/retro/SKILL.md` says why the next run needs it active.
 
 ## Gate B — Grill the user
 
@@ -227,7 +231,8 @@ One line per repo when more than one is in scope. The path is the container gate
 ### References
 - Research absorbed from: <pad name and id, if any>
 - Retro absorbed from: <pad name and id, if any — that pad stays active>
-- Critique roster: <model · effort, one per critic>
+- Worker runtime: <name>
+- Critique roster: <runtime, one per critic>
 ```
 
 The plan leads and the evidence follows. One `**Repos**:` line carries the container path
@@ -281,7 +286,8 @@ Rules the rest of the workflow depends on:
 
 ## Gate E — Approval and fork
 
-Optionally run `/critique plan/<slug>` first and fold in what survives.
+Optionally run `/critique plan/<slug>` first, with the gate A `Critique:` roster, and fold in what
+survives.
 
 Present the design — the slices, their file scopes, and any constraint that ties two together:
 
@@ -331,11 +337,6 @@ did not rank, so it never counts as its own recommendation.
   command for the user to type. The next stop is that skill's roster gate.
 - **Stash for later** — hand to `/stash`, which proposes the tracker shape and confirms.
 - **Leave active** — do nothing. The pad stays in Solo.
-
-**Do not ask for the critique roster here.** `/implement` reads it from the pad's `### References`
-and asks inside its own roster gate where the pad names none. One run holds one roster, and two
-skills asking for it turns one stop into two. Write the roster to `### References` whenever the
-grilling settled it.
 
 ## Guidelines
 

@@ -23,9 +23,10 @@ Take the waves of the current milestone in order. For each task in the wave:
 
 1. `todo_update(todo_id, status="in_progress")` — status is `open`, `in_progress`, `backlog`,
    or `completed`, and priority is `high`, `medium`, or `low`
-2. Spawn at the approved tier, enforcing every constraint the runtime can enforce:
+2. Spawn at the approved tier, on the worker runtime `/implement` resolved, enforcing every constraint the
+   runtime can enforce:
    ```
-   spawn_agent(agent_tool_id=<runtime>, name="<task>-<slug>", extra_args=[
+   spawn_agent(agent_tool_id=<that runtime's id>, name="<task>-<slug>", extra_args=[
      <the model and effort arguments, at the approved tier>,
      <the auto-approval argument from the adapter>,
      <the editing-worker arguments from the adapter, with any per-command git denial>,

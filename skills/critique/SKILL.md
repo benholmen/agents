@@ -107,7 +107,7 @@ Which models should critique this? I recommend <the models>, because <the ground
 Use only enabled runtimes — never assume a fixed set. Each model misses different defects,
 which is the point. Independent critics find more defects than one critic that you run repeatedly.
 
-When `/implement` calls this skill, it already chose the roster at setup. Use that roster, and
+When `/plan` or `/implement` calls this skill, it already chose the roster. Use that roster, and
 do not ask again.
 
 **One roster serves a whole run.** `/implement` chooses it once, then reuses it for every

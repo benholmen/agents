@@ -26,7 +26,7 @@ Two reasons survive. Every claim in this section holds on 2026-09-19, against Cl
 
 ## The shape
 
-1. `list_agent_tools` — resolve the runtime. Never hardcode a roster or an id.
+1. `list_agent_tools` — resolve the runtime. Use the runtime the plan pad's `Worker runtime:` line names, or the one the user named. Otherwise use the **host runtime**: the entry whose `tool_type` matches the runtime this session runs in. Where no enabled entry matches, or more than one does, stop with `Blocked` and list the enabled entries. Never ask, unless a skill asks for its own roster, as a standalone `/critique` does. Never hardcode a roster or an id.
 2. `spawn_agent(agent_tool_id=<id>, name="<role>-<slug>", extra_args=[…])` returns `process_id` and `agent_instructions`. See **Capability, not compliance** for what belongs in `extra_args`.
 3. Write the brief pad. See **The worker brief pad**.
 4. `send_input(process_id, input=<pointer>)` — the pointer names the pad id. See **The pointer shape**.

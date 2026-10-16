@@ -34,8 +34,9 @@ all three.
 ## Step 1 — Establish scope, and confirm it
 
 Do one cheap first pass before you spawn any worker. Read any files the user mentioned fully —
-no limit/offset. Run `git rev-parse --show-toplevel`, and skim enough structure to form a
-proposal.
+no limit/offset. Resolve each repository's container path, and skim enough structure to form a
+proposal. Resolve the container with the derivation in `skills/worktree/SKILL.md`, under
+`## Derive the container from any worktree`.
 
 Determine the Solo project with `list_projects`, then use **whichever project is currently
 selected**. Do not match paths or assume a name. Confirm it in the gate, so the user catches a
@@ -77,8 +78,8 @@ sub-agent mechanism.
 Build the slug first — `date +%Y-%m-%dt%H%M` plus a short topic, e.g.
 `2026-04-05t1423-jwt-auth`. Workers name their pads under it, and step 4 reuses it.
 
-Resolve the runtime once with `list_agent_tools`. Use the entry the user named, or the only
-enabled entry. Ask when more than one is enabled and the user named none. Call `whoami` and keep the returned `process_id` — every worker needs it to signal back.
+Resolve the runtime once with `list_agent_tools`, and use the host runtime, per
+`solo-agent-orchestration`. Call `whoami` and keep the returned `process_id` — every worker needs it to signal back.
 Then, per confirmed area:
 
 ```

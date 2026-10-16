@@ -254,6 +254,11 @@ fan out with `spawn_agent`, never with the host runtime's own sub-agent mechanis
 reasoning, so the policy also holds for a fan-out that no skill started. Each skill carries only
 its own worker brief and constraints.
 
+**Workers use the host runtime unless the plan names another.** The host runtime is the runtime
+your session runs in. A plan records the worker runtime and the critique roster in its
+`### References`, and `/implement` reads both without asking. `/research` and `/retro` use the
+host runtime without asking. Only a standalone `/critique` asks which models to use.
+
 **Every worker launches in auto-approval mode.** A read-only assignment is no exception, and no
 worker uses a bypass mode. Each runtime names its own flags, and it renames them between releases.
 Read `references/runtime-<tool_type>.md` for the arguments rather than a list here.
@@ -272,8 +277,8 @@ one. A gate's opening message carries a reserved heading and fences its block, p
 [chat-vocabulary](rules/chat-vocabulary.md). `Approve` marks a proposal, and `Deciding` marks a
 question you cannot answer yourself.
 
-**`/plan` grills you.** One question per message, never two. Each one carries a fenced context
-block, a mandatory recommendation, and the `⏸` footer. Only the first question carries the
+**`/plan` grills you.** Gate A shows two changeable runtime lines, `Workers:` and `Critique:`,
+so no later question asks for a runtime. One question per message, never two. A question that offers options carries a fenced context block and a recommendation, and a prose question ends with the `⏸` footer. Only the first question carries the
 `Deciding` heading, so a long grilling does not become a column of headings. The
 question whose answer changes the most other answers comes first. `/plan` looks up anything the
 filesystem or a tool can tell it, rather than asking you. Its scope gate names the decisions it
@@ -306,8 +311,9 @@ your tree.
 **You approve the roster before anything spawns.** `/implement` presents the milestones and
 their PR titles first, then the waves and tiers inside each one. `/implement` writes each summary
 so the tier follows from it. A task described as "three localized edits against precise line
-references" argues for its own tier. Adjust any milestone boundary, model, effort, or grouping,
-or approve the roster as proposed.
+references" argues for its own tier. The roster gate also restates the `Workers:` and
+`Critique per milestone:` lines from the plan, and you can change either. Adjust any milestone
+boundary, model, effort, runtime, or grouping, or approve the roster as proposed.
 
 **Both runtimes bound an immutable-target worker's writes by directory.** That worker reads the
 target and writes only scratch, and the operating system enforces the bound. On Claude the
@@ -330,8 +336,9 @@ approved plan. Neither one improvises. The record is the worker's report scratch
 completion signal says that it escalated, so you have one place to look. Other workers in the
 wave finish, and everything appears together at the join.
 
-**Critique is adversarial and multi-model.** `/critique` spawns one worker per model you select:
-Claude, Copilot, Kimi, or anything else enabled in Solo. Each worker tries to break the target
+**Critique is adversarial and multi-model.** `/critique` spawns one worker per model in its
+roster: Claude, Copilot, Kimi, or anything else enabled in Solo. A standalone run asks you for the
+roster, and `/implement` supplies the plan's. Each worker tries to break the target
 rather than survey it. Cross-model agreement is evidence that a defect is real, because two
 models rarely invent one defect. One model gives no such evidence, so a refutation pass takes its
 place and drops what it refutes. Agreement raises confidence, and it drops nothing. Every merged
