@@ -19,8 +19,7 @@ understanding. Walk down each branch of the decision tree, resolving dependencie
 decisions one-by-one.
 
 Every question takes the question shape that `rules/chat-vocabulary.md` defines. Read the shape
-there. This skill does not restate it. A question that offers nothing to rank carries no
-recommendation.
+there. This skill does not restate it.
 
 Ask one question per message. Never batch two into one call. The user answers the first, and the
 second one disappears.
@@ -36,6 +35,8 @@ Do not act on it until the user confirms you have reached a shared understanding
 - **Order by dependency.** Ask the question whose answer changes the most other answers first.
   When an answer invalidates something already decided, say so and revisit it rather than
   quietly building on a contradiction.
+- **Recommend, always.** A recommendation is mandatory, not expected. Every question carries
+  one, with the reason for it. A question without a recommendation is incomplete.
 - **Look it up.** Anything discoverable from the filesystem, git, an API, or a tool is yours to
   find. Do not ask the user for a fact you could have read. That wastes a turn.
 - **Show the consequence.** State what each option costs and what it forecloses. Options that

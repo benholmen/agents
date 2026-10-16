@@ -215,7 +215,8 @@ one. A gate's opening message carries a reserved heading and fences its block, p
 question you cannot answer yourself.
 
 **`/plan` grills you.** Gate A shows two changeable runtime lines, `Workers:` and `Critique:`,
-so no later question asks for a runtime. One question per message, never two. A question that offers options carries a fenced context block and a recommendation, and a prose question ends with the `⏸` footer. Only the first question carries the
+so no later question asks for a runtime. One question per message, never two. Each one carries a fenced context
+block, a mandatory recommendation, and the `⏸` footer. Only the first question carries the
 `Deciding` heading, so a long grilling does not become a column of headings. The
 question whose answer changes the most other answers comes first. `/plan` looks up anything the
 filesystem or a tool can tell it, rather than asking you. Its scope gate names the decisions it
