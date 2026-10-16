@@ -337,6 +337,9 @@ did not rank, so it never counts as its own recommendation.
 - **Stash for later** — hand to `/stash`, which proposes the tracker shape and confirms.
 - **Leave active** — do nothing. The pad stays in Solo.
 
+**Do not ask for the critique roster here.** Gate A already settled it. One run holds one roster,
+and two skills asking for it turns one stop into two.
+
 ## Guidelines
 
 - **Be skeptical.** Question vague requirements and verify corrections against the code rather

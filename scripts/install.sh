@@ -279,16 +279,23 @@ fi
 
 settings="${DEST}/settings.json"
 if command -v jq >/dev/null 2>&1 && [[ -f "${settings}" ]] \
+   && [[ ! -e "${DEST}/output-styles/prose-discipline.md" ]] \
    && jq -e 'type == "object" and .outputStyle == "prose-discipline"' "${settings}" >/dev/null 2>&1; then
   tmp=""
-  if tmp="$(mktemp "${settings}.XXXXXX")" \
-     && jq 'del(.outputStyle)' "${settings}" > "${tmp}" \
-     && cat "${tmp}" > "${settings}"; then
+  if ! tmp="$(mktemp "${settings}.XXXXXX")" \
+     || ! jq 'del(.outputStyle)' "${settings}" > "${tmp}"; then
+    [[ -z "${tmp}" ]] || rm -f "${tmp}"
+    echo "  could not write settings.json -- remove its outputStyle key yourself"
+  elif cat "${tmp}" > "${settings}"; then
+    rm -f "${tmp}"
     echo "  removed superseded outputStyle=prose-discipline from settings.json"
   else
-    echo "  could not write settings.json -- remove its outputStyle key yourself"
+    echo "  could not write settings.json -- an intact copy without outputStyle is at ${tmp}"
   fi
-  [[ -z "${tmp}" ]] || rm -f "${tmp}"
+elif ! command -v jq >/dev/null 2>&1 && [[ -f "${settings}" ]] \
+   && [[ ! -e "${DEST}/output-styles/prose-discipline.md" ]] \
+   && grep -q '"outputStyle"[[:space:]]*:[[:space:]]*"prose-discipline"' "${settings}"; then
+  echo "  jq not found -- remove outputStyle from settings.json yourself"
 fi
 
 echo ""

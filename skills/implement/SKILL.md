@@ -89,7 +89,7 @@ Skip anything the `/plan` fork already confirmed — do not re-ask what the user
 4. **Assign each task a model and effort tier.** A task does not inherit these from the session.
    Judge by what the task demands. A mechanical edit against precise line references is not a
    contract-preserving rewrite, and the two should not cost the same. Every task runs on the
-   worker runtime `## Input` resolved, and model and effort vary within it.
+   worker runtime the roster gate approves, and model and effort vary within it.
 5. **Gate the roster.** This is an approval stop, not an announcement. Milestones and their PR
    titles come first. Waves and tiers come second, inside the milestone that holds them.
 
@@ -139,7 +139,8 @@ Skip anything the `/plan` fork already confirmed — do not re-ask what the user
    **Both runtime lines come from the plan.** `/plan` records them under `### References`, and
    `--critique` overrides the critique roster. Restate both in this gate as lines the user can
    change, and ask nothing else. With no roster in the pad or `--critique`, use the host runtime,
-   per `solo-agent-orchestration`.
+   per `solo-agent-orchestration`. One run holds one roster, or nobody can compare its milestone
+   findings. `list_agent_tools` resolves the enabled runtimes. Never hardcode a roster.
 
    **Disclose a worker runtime that cannot deny git writes.** `rules/solo-agent-orchestration.md`
    carries the posture, and the adapter names what each runtime can enforce. Read both before you
