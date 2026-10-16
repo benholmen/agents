@@ -286,6 +286,7 @@ if command -v jq >/dev/null 2>&1 && [[ -f "${settings}" ]] \
      || ! jq 'del(.outputStyle)' "${settings}" > "${tmp}"; then
     [[ -z "${tmp}" ]] || rm -f "${tmp}"
     echo "  could not write settings.json -- remove its outputStyle key yourself"
+  # cat rather than mv: it writes through a symlink and keeps the mode and owner.
   elif cat "${tmp}" > "${settings}"; then
     rm -f "${tmp}"
     echo "  removed superseded outputStyle=prose-discipline from settings.json"
