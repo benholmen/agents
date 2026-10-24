@@ -1,13 +1,13 @@
 ---
 name: implement
 description: Execute an approved plan as a loop of milestones, each landing its own PRs
-argument-hint: "[plan/<slug>] [--critique <models>]"
+argument-hint: "[<slug> | <plan file>] [--critique <roster>]"
 ---
 
 # Implement
 
-Orchestrate execution of an approved plan. You own git, todo lifecycle, and worker
-coordination. Workers write code and nothing else.
+Orchestrate execution of an approved plan. You own git, `state.yml`, and worker coordination.
+Workers write code and nothing else.
 
 The plan declares **slices**. This skill composes them into **milestones**, and each milestone
 ships its own PRs before the next one starts.
@@ -19,26 +19,26 @@ ships its own PRs before the next one starts.
   wave        the concurrency schedule inside a milestone, from file overlap.
 ```
 
-A **task** is one worker, one todo, one report scratchpad, one model tier. A task carries one
+A **task** is one worker, one task spec, one report, one model tier. A task carries one
 slice, or several that must not drift apart. Workers escalate on **deviation**, not on
 completion — see [Escalation](#escalation).
 
+`<state>` below is the state directory `rules/agent-orchestration.md` defines. This plan's
+directory is `<state>/plans/<slug>/`.
+
 ## Input
 
-- **A plan pad** (`plan/<slug>` or an id) — the normal case. A calling skill passes it here.
-- **`--critique <models>`** — the critique roster. Without it, read the pad's `### References`.
-- **Existing todos for the slug** — this is a resumed run. The todos *are* the composition, so
-  reuse them rather than composing again. Pick up at the first milestone with open tasks.
+- **A plan** (`<slug>`, or the path of its `plan.md`) — the normal case. A calling skill passes it
+  here.
+- **`--critique <roster>`** — the critique roster. Without it, read the plan's `### References`.
+- **An existing `state.yml` for the slug** — this is a resumed run. `state.yml` *is* the
+  composition, so reuse it rather than composing again. Pick up at the first milestone that has
+  not landed.
 
-Read the pad fully. If none exists, send the user to `/plan`.
+Read the plan fully. If none exists, send the user to `/plan`.
 
-The pad's `### References` names the `Worker runtime:`. With none named, use the host runtime, per
-`solo-agent-orchestration`.
-
-With no plan pad named, list the active pads via `scratchpad_list(tags=["plan"])` and ask which
-one. That opens a `Deciding` gate, per `rules/chat-vocabulary.md`, and a caller never reaches it.
-
-Use whichever Solo project is currently selected, consistent with `/plan`.
+With no plan named, list the active plans under `<state>/plans/` and ask which one. That opens a
+`Deciding` gate, per `rules/chat-vocabulary.md`, and a caller never reaches it.
 
 ## Speaking
 
@@ -58,7 +58,7 @@ continue, and never re-ask a question the plan already answered.
 Stop on these, and on nothing else:
 
 ```
-  no plan pad
+  no plan
   a /worktree refusal
   census drift
   a critique escalation, C1 to C6
@@ -88,8 +88,8 @@ Skip anything the `/plan` fork already confirmed — do not re-ask what the user
    rules that turn file overlap into a wave order.
 4. **Assign each task a model and effort tier.** A task does not inherit these from the session.
    Judge by what the task demands. A mechanical edit against precise line references is not a
-   contract-preserving rewrite, and the two should not cost the same. Every task runs on the
-   worker runtime the roster gate approves, and model and effort vary within it.
+   contract-preserving rewrite, and the two should not cost the same. Every task runs as an
+   `implement-worker`, and model and effort vary per task.
 5. **Gate the roster.** This is an approval stop, not an announcement. Milestones and their PR
    titles come first. Waves and tiers come second, inside the milestone that holds them.
 
@@ -105,7 +105,7 @@ Skip anything the `/plan` fork already confirmed — do not re-ask what the user
               Author one rule from scratch, matching house style across six
               existing files.
          wave 2
-           B  skills/{research,recall,stash}/SKILL.md        sonnet · medium
+           B  skills/{research,critique,worktree}/SKILL.md   sonnet · medium
               Three localized edits against precise line references.
 
      M2  deliver each milestone as its own PRs
@@ -119,9 +119,7 @@ Skip anything the `/plan` fork already confirmed — do not re-ask what the user
               Add stacked-PR guidance to a general rule without turning it
               into an appendix.
 
-     Workers: <runtime> — from the plan, or the host runtime.
-     Critique per milestone: <models> — from the plan.
-     Sandbox: <runtime> cannot deny a worker's git writes.
+     Critique per milestone: <roster> — from the plan.
    ```
 
    Adjust any milestone boundary, model, effort, or grouping, or approve as proposed.
@@ -136,28 +134,55 @@ Skip anything the `/plan` fork already confirmed — do not re-ask what the user
    The roster is where a milestone that does two things, or two milestones that should be one,
    becomes obvious.
 
-   **Both runtime lines come from the plan.** `/plan` records them under `### References`, and
-   `--critique` overrides the critique roster. Restate both in this gate as lines the user can
-   change, and ask nothing else. With no roster in the pad or `--critique`, use the host runtime,
-   per `solo-agent-orchestration`. One run holds one roster, or nobody can compare its milestone
-   findings. `list_agent_tools` resolves the enabled runtimes. Never hardcode a roster.
+   **The critique line comes from the plan.** `/plan` records it under `### References`, and
+   `--critique` overrides it. Restate it in this gate as a line the user can change, and ask
+   nothing else. With no roster in the plan or `--critique`, use `/critique`'s default
+   roster: one Claude critic and one Codex critic. One run holds one roster, or nobody can compare
+   its milestone findings.
 
-   **Disclose a worker runtime that cannot deny git writes.** `rules/solo-agent-orchestration.md`
-   carries the posture, and the adapter names what each runtime can enforce. Read both before you
-   propose a runtime. Where one cannot deny those writes, include the `Sandbox` line above and
-   name the exposure. Two workers in one tree cross-commit each other's work. Omit that line where
-   the worker runtime denies them. Do not restate a flag, and never promise a denial the
-   roster cannot give.
-6. **Create the todos** — one per approved task, tagged with its milestone. The body carries the
-   **task spec**: the slices it covers, their files, their verification, and their proof
-   commands. The plan holds slices; the todo holds the grouping, which exists nowhere else. The
-   worker reads its own todo, so this is the only place the spec belongs.
+   **Disclose a host that cannot deny git writes.** On Claude, `implement-worker`'s hook denies
+   them, so the roster carries no extra line. On Codex, `rules/agent-orchestration.md` says no
+   per-worker denial exists. Add a `Sandbox:` line there that names the exposure: two workers in
+   one tree can cross-commit each other's work. Never promise a denial the host cannot give.
+6. **Write the schedule.** Write `<state>/plans/<slug>/state.yml`, the one record of the
+   composition, which exists nowhere else:
+
+   ```yaml
+   plan: <slug>
+   critique: [<roster entry>, ...]
+   milestones:
+     m1:
+       outcome: <one sentence>
+       after: []
+       status: pending
+       repos:
+         <repo>:
+           branch: <type>/<slug>-m1
+           base: origin/HEAD
+           worktree: <set by milestone loop step 1>
+           pr: <set by milestone loop step 7>
+       waves:
+         - [m1-a]
+         - [m1-b]
+   tasks:
+     m1-a:
+       title: <short task name>
+       repo: <repo>
+       paths: [<declared path>, ...]
+       model: opus
+       effort: xhigh
+       status: pending
+       agent: <the agent ID, set at spawn>
+       commit: <set at the wave join>
    ```
-   todo_create(title="<task>: <name>", body=<task spec>,
-               tags=["plan:<slug>", "milestone:<m>", "project:<repo>", "task:<letter>"])
-   todo_add_blocker(todo_id=<dependent>, blocker_id=<prerequisite>)
-   ```
-   Keys and tags are lowercase.
+
+   A milestone's `status` moves from `pending` to `running` to `landed`. A task's moves from
+   `pending` to `running` to `committed`, or to `escalated`. Keys are lowercase.
+
+   Then write one **task spec** per task, at `<state>/plans/<slug>/tasks/<m>-<task>.md`. It
+   carries the slices the task covers, their files, their verification, and their proof commands.
+   The plan holds slices; the spec holds the grouping. The worker reads its own spec, so this is
+   the only place the grouping's detail belongs.
 
    **Every automated check must be able to fail.** Run each check against the pre-change tree
    before you write it into the spec, and record the output there. A check that already passes
@@ -176,20 +201,20 @@ milestone, then starts again at step 1. Two milestones never run at once, whatev
 edges allow. This skill therefore offers no concurrency setting, and it asks the user for none.
 The waves inside one milestone still run their tasks concurrently — that is step 3's job.
 
-1. **Cut a worktree and branch for each repository the milestone touches.** Write the branch key
-   first, then cut:
+1. **Cut a worktree and branch for each repository the milestone touches.** Confirm the branch is
+   recorded in `state.yml` first, then cut:
    ```
-   kv_set(key="plan:<slug>:milestone:<m>:branch:<repo>", value="<branch>")
+   state.yml: milestones.<m>.repos.<repo>.branch = <branch>
    /worktree cut <container path from the plan's **Repos**: line> <milestone> <branch> <base>
    ```
-   **The key goes first, and that order is load-bearing.** `/worktree` reads the key to tell a
+   **The record goes first, and that order is load-bearing.** `/worktree` reads it to tell a
    resume from a collision. Write it after the cut, and a run that dies between the two takes the
    collision branch. It then escalates over its own branch.
 
    **Pass the container path, never the repository name.** `/worktree` substitutes it into
    `--git-dir`. Pass `agents` instead, and cut mode resolves against the session's working
    directory and refuses an already-converted repository. `/plan` records the container path on
-   its `**Repos**:` line. `<repo>` stays the short name in every KV key here.
+   its `**Repos**:` line. `<repo>` stays the short name in every `state.yml` key.
 
    That skill owns the layout, the provisioning, the naming, and every refusal it states. Add
    nothing to its procedure, and do not paraphrase it.
@@ -198,19 +223,18 @@ The waves inside one milestone still run their tasks concurrently — that is st
    a repository that carries no provisioning script. Pass that report to the user as it stands, and
    cut no second worktree. The tree it kept is the one the retry reuses.
 
-   The branch is `<type>/<slug>-<milestone>`, per `solo-agent-orchestration`. The base is
+   The branch is `<type>/<slug>-<milestone>`, per `rules/agent-orchestration.md`. The base is
    `origin/HEAD`, or the predecessor milestone's branch in that repository when the milestones
-   stack there. **Pass both to `/worktree`, which builds
-   neither.** `<type>` is `feat`, `fix`, or `chore`, and this skill holds that choice. Let
-   `/worktree` construct the name a second time, and the two can differ from the key you just
-   wrote.
+   stack there. **Pass both to `/worktree`, which builds neither.** `<type>` is `feat`, `fix`, or
+   `chore`, and this skill holds that choice. Let `/worktree` construct the name a second time, and
+   the two can differ from the record you just wrote.
 
-   **A resumed run may find the worktree still standing.** `/stash` leaves one behind, and
-   `solo-agent-orchestration` carries both tests. Reuse a recorded path that holds this
-   milestone's branch, and stop where it holds anything else.
+   **A resumed run may find the worktree still standing.** A run that stopped before its push gate
+   leaves one behind, and `rules/agent-orchestration.md` carries both tests. Reuse a recorded path
+   that holds this milestone's branch, and stop where it holds anything else.
 
-   `/worktree` records the tree path under `plan:<slug>:milestone:<m>:worktree:<repo>`. Both keys
-   carry the milestone and the repository, and `solo-agent-orchestration` says why.
+   `/worktree` reports the tree path. Record it under `milestones.<m>.repos.<repo>.worktree`, and
+   set the milestone's `status` to `running`.
 2. **Re-check the census in the worktree.** The plan's `**Files**:` lists came from a census at
    plan time. Repeat it now for this milestone's slices, in the tree you just cut.
    `/plan` names what it searches for: the caller, the test, and the standard your change
@@ -218,13 +242,13 @@ The waves inside one milestone still run their tasks concurrently — that is st
 
    **Escalate on drift.** A path the census now returns, and the plan does not declare, is a
    deviation. Stop and put it to the user. Do not widen a task's declared paths yourself.
-3. **Run the milestone's waves.** `references/implement-waves.md` carries the spawn, the brief
-   pad, the pointer, the guard, and the join. Each wave commits its own tasks at its join, so no
-   task commit follows the last wave.
+3. **Run the milestone's waves.** `references/implement-waves.md` carries the spawn, the brief,
+   the join, and the commit. Each wave commits its own tasks at its join, so no task commit
+   follows the last wave.
 4. **Critique this milestone's diff, once per repository it touches.** Name the base explicitly,
    and pass the plan:
    ```
-   /critique --base <that repository's effective base> --plan <the plan pad>
+   /critique --base <that repository's effective base> --plan <the plan file>
    ```
    A repository's effective base is the ref step 1 cut from there. That is `origin/HEAD`, or the
    predecessor milestone's branch where those milestones stack.
@@ -264,11 +288,11 @@ The waves inside one milestone still run their tasks concurrently — that is st
    ⏸ waiting on you: approve the push for milestone `<m>`
 7. **Push and open one PR per repository the milestone touches.** Follow
    `pr-first-contributions`, which owns the stacked-PR base and the title spec. Update an open PR
-   rather than opening a second one.
+   rather than opening a second one. Record each PR under `milestones.<m>.repos.<repo>.pr`.
 8. **Run the integration critique, once the last milestone has pushed.** This is a step, not an
    option. Skip it on every earlier milestone.
    ```
-   /critique --integration <slug> --plan <the plan pad>
+   /critique --integration <slug> --plan <the plan file>
    ```
    It runs the four integration lenses with the same critique roster. One of them is the
    reason this step exists: did every slice the plan declared land in some milestone? A
@@ -307,15 +331,14 @@ The waves inside one milestone still run their tasks concurrently — that is st
 
    **The last milestone's block carries the `Integration:` line and the integration ledger too.**
    Omit both on every earlier milestone, because step 8 ran nothing there.
-10. **Tear down and clean up.** Do all four, in this order:
+10. **Tear down and clean up.** Do all three, in this order:
     ```
-    timer_cancel(timer_id=<each guard armed for this milestone>)
-    close_process(process_id=<each worker of this milestone>)
-    lock_release for any lock a dead worker left held
+    stop any worker of this milestone that still runs, with TaskStop
     stop the stack and remove the worktree, per /worktree's teardown block
+    set the milestone's status to landed in state.yml
     ```
-    The branch lives on the remote once the push succeeds, so the worktree is disposable. A guard
-    left armed fires during a later milestone, about workers that finished long ago.
+    The branch lives on the remote once the push succeeds, so the worktree is disposable. A worker
+    still running here would write into a tree that teardown removes.
 
 Then start the next milestone.
 
@@ -332,9 +355,10 @@ deviates from the task.
 **In-flight workers in the same wave finish.** They hold disjoint file scopes, so no other work
 depends on the problem.
 
-The worker's report scratchpad is the durable record, and its completion signal says whether it
-escalated. The wave join is the only place an escalation appears. Resolve every escalation before
-the milestone lands, or the run stops here.
+The worker's report is the record, and its first line says whether it escalated. The join writes
+an escalated report to `reports/<m>/<task>.md`, so it survives this session. The wave join is the
+only place an escalation appears. Resolve every escalation before the
+milestone lands, or the run stops here.
 
 **Blocked — milestone `<m>` wave `<N>`**
 
@@ -356,8 +380,12 @@ a `Blocked` options list ranks nothing by itself. Name the option you would take
 rests on. An `Approve` gate needs no separate line, because its proposal is its own
 recommendation.
 
-Do not start the next wave until you resolve this. If the plan needs a change, update the pad so
-it stays the record of what the user actually agreed.
+Do not start the next wave until you resolve this. If the plan needs a change, update the plan
+file so it stays the record of what the user actually agreed.
+
+**Resume the escalated worker with `SendMessage`, carrying the decision.** It keeps everything it
+read and found. Spawn a fresh worker only where the decision changes the task itself, and update
+its task spec first.
 
 Automated verification failing is not automatically an escalation — a worker that can fix it
 within the plan's intent should. It escalates when the fix would require departing from the plan.
@@ -367,24 +395,18 @@ within the plan's intent should. It escalates when the fix would require departi
 Close the run after the last milestone lands. Every milestone pushed its own PRs and tore down
 its own worktrees, and step 9 reported the integration critique. Nothing here opens a PR.
 
-1. `scratchpad_archive(scratchpad_id=<plan pad>)` — it has served its purpose
-2. `todo_delete` every todo tagged `plan:<slug>` — the run ended, so nothing reads the grouping now
-3. `kv_delete` every `plan:<slug>:*` key
-4. `close_process` any surviving worker
-5. `git worktree prune` in each container, per `solo-agent-orchestration`
-
-**Delete the todos rather than leaving them completed.** `todo_complete` keeps the todo, so a
-closed run otherwise leaves one per task in Solo forever. The README says todos exist only while
-this skill runs a plan, and step 2 is what makes that true. Each report scratchpad already holds
-what the task did.
+1. Confirm no worker of this run still runs. Stop any that does, with `TaskStop`.
+2. `git worktree prune` in each container, per `rules/agent-orchestration.md`.
+3. Move `<state>/plans/<slug>/` into `<state>/archive/` whole. It has served its purpose, and
+   once archived it no longer claims its branches.
 
 **Close is silent.** Each `Landed` already carried its own PR URLs, quality gates, and ledger.
 Repeat none of it here. `rules/chat-vocabulary.md` reserves five occasions, and a closing report
 is a sixth.
 
 **The integration critique runs before this section, and that order matters.** It compares the
-landed branches against the plan pad. Archive the pad first, and you remove half of that
-comparison.
+landed branches against the plan and reads its branches from `state.yml`. Archive the plan
+first, and you remove both halves of that comparison.
 
 ## Notes
 

@@ -18,7 +18,7 @@ A milestone loop needs this before it can run. A fresh worktree holds no `.env`,
 without colliding with the stack already running. Every gate in the corpus fails on an
 unprovisioned worktree for reasons unrelated to the change.
 
-`rules/solo-agent-orchestration.md` carries the worktree standard. This skill implements that
+`rules/agent-orchestration.md` carries the worktree standard. This skill implements that
 standard and invents no second convention.
 
 This skill refuses a repository that is not a container yet. `/bare-convert` sets one up, or
@@ -41,11 +41,12 @@ timestamp, so one plan's worktrees sort together and two plans never interleave.
 worktree keeps the name `main`, and it carries no prefix.
 
 The branch carries the plan slug too: `<type>/<plan-slug>-<milestone-slug>`. Teardown keeps the
-branch, and `/implement`'s close step deletes the KV that names it. The prefix is therefore what
-tells a resume from another plan's leftover. `rules/solo-agent-orchestration.md` states that
-reasoning once.
+branch, and `/implement`'s close step archives the `state.yml` that names it. The prefix is
+therefore what tells a resume from another plan's leftover. `rules/agent-orchestration.md` states
+that reasoning once.
 
-Every slug is lowercase, because a KV key carries it.
+Every slug is lowercase, because it builds `COMPOSE_PROJECT_NAME`, and Compose rejects an
+uppercase project name.
 
 ## Derive the container from any worktree
 
@@ -82,8 +83,8 @@ because only cut creates anything.
 
 **Never rebuild the branch name here.** `<type>` is `feat`, `fix`, or `chore`, chosen for the work
 per `rules/pr-first-contributions.md`. Only the caller holds that choice. Build the name here as
-well, and the two constructions can differ. The next pass then reads a KV key naming a branch that
-does not exist. It takes the collision case, and escalates over its own branch.
+well, and the two constructions can differ. The next pass then reads a `state.yml` entry naming a
+branch that does not exist. It takes the collision case, and escalates over its own branch.
 
 Three more values follow from those four, and this skill states each derivation once:
 
@@ -115,13 +116,13 @@ Report that refusal to the user:
 
 ```
 found:      <container>/.git is a plain clone, not a bare repository
-needed:     the bare-plus-worktrees layout, per rules/solo-agent-orchestration.md
+needed:     the bare-plus-worktrees layout, per rules/agent-orchestration.md
 next:       /bare-convert convert <container>
 ```
 
 ⏸ waiting on you: run /bare-convert convert <container>, or name another container
 
-Test the branch and the recorded worktree path before you cut. `rules/solo-agent-orchestration.md`
+Test the branch and the recorded worktree path before you cut. `rules/agent-orchestration.md`
 carries both tests, the three branch cases, and the escalation each one demands. Follow it rather
 than a second copy here.
 
@@ -134,8 +135,8 @@ git -C "<container>/main" worktree add "<worktree>" -b "<branch>" "<base>"
 Pass no `-b` on a resume, because the branch already exists. Where the recorded path already holds
 this milestone's branch, reuse that worktree and cut nothing.
 
-Record the path under `plan:<slug>:milestone:<m>:worktree:<repo>`, as the orchestration rule
-requires. Then run provision mode against the new worktree.
+Report the path to the caller, which records it in its plan's `state.yml`, as the orchestration
+rule requires. Then run provision mode against the new worktree.
 
 **Provision mode can refuse, and cut then ends `Blocked` with the worktree standing.** Report that
 refusal as provision mode writes it. The recorded path stays correct, so the retry reuses the tree

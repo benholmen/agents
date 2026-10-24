@@ -1,7 +1,7 @@
 ---
 name: plan
-description: Research, grill, and produce an implementation plan in a Solo scratchpad
-argument-hint: "[topic | research/<slug> | recall/<issue-ref> | paths]"
+description: Research, grill, and produce an implementation plan in a plan file
+argument-hint: "[topic | research file | paths]"
 ---
 
 # Plan
@@ -9,25 +9,24 @@ argument-hint: "[topic | research/<slug> | recall/<issue-ref> | paths]"
 Produce an implementation plan grounded in research, shaped by interrogating the user.
 
 Three gates: **scope**, **grilling**, **approval**. The output is exactly one artifact — a
-plan scratchpad. It leads with the plan and keeps the research in an appendix. This skill
-creates no Solo todos. `/implement` composes the slices into milestones when it starts, or
-`/stash` turns them into tracker issues.
+plan file. It leads with the plan and keeps the research in an appendix. This skill writes no
+schedule. `/implement` composes the slices into milestones when it starts.
+
+`<state>` below is the state directory `rules/agent-orchestration.md` defines.
 
 ## Input
 
 `$ARGUMENTS` may contain any of:
 
 - A topic or question — plan from scratch
-- A research pad (`research/<slug>` or a numeric id) — from a standalone `/research`
-- A retro pad (`retro/<slug>` or a numeric id) — from `/retro`
+- A research file (`<state>/research/<slug>.md`, or its slug) — from a standalone `/research`
 - File paths — read fully before anything else
-- A recall pad (`recall/<issue-ref>` or a numeric id) — from `/recall`
 
 With no arguments:
 
 > **Deciding — what to plan**
 >
-> What should I plan? Give me a topic, a research pad from `/research`, or relevant context.
+> What should I plan? Give me a topic, a research file from `/research`, or relevant context.
 >
 > ⏸ waiting on you: name what to plan
 
@@ -46,24 +45,22 @@ write no second copy. `git rev-parse --show-toplevel` is the wrong command here:
 `<container>/main` in a converted repository, and `/worktree cut` then refuses the container as a
 plain clone.
 
-**Solo project:** run `list_projects` and use **whichever project is currently selected**. No
-path matching, no assumed name. State it in the gate.
-
-**Runtimes:** `Workers:` and `Critique:` both default to the host runtime, per
-`solo-agent-orchestration`. The user may change either one to enabled runtimes. Write both to the
-pad's `### References`.
+**Critique roster:** `Critique:` defaults to `/critique`'s default roster, one Claude critic at
+the session's model and one Codex critic. Where `codex` is absent, it falls back to the Claude
+critic alone, and the gate says so. The user may change it to any roster `/critique` step 2
+accepts. Write it to the plan's `### References`.
 
 **Target repos:** infer, and show your evidence for each. Draw on the current repo and on the
-repos a research pad's target list names. Draw on repos implied by `file:line` references in
-findings, and on the `path` of each known Solo project. Say what you excluded and why.
+repos a research file's target list names. Draw on repos implied by `file:line` references in
+findings. Say what you excluded and why.
 
 **Tree staleness:** run a real `git fetch` in each repo in scope. Report how far each tree sits
 behind its default branch, as a number of commits. Report `0` for a current tree. A claim that
 the tree is current is not a number, so it does not count.
 
-**Investigation:** describe what you intend to look into, not a tier. If the user supplied a
-research pad, read it fully first. Scope the investigation to the gaps, and do not re-derive
-what you already know.
+**Investigation:** describe what you intend to look into, and the model and effort each area
+needs. If the user supplied a research file, read it fully first. Scope the investigation to the
+gaps, and do not re-derive what you already know.
 
 **Decisions:** name each decision you expect to put to the user at gate B. A list of decisions
 tells the user what the grilling costs. A count of questions does not, and the count ran 1.43×
@@ -74,9 +71,7 @@ low across twenty runs.
 ```
 Before I investigate — confirm or adjust:
 
-  Solo project: <name>  (<path>)
-  Workers:      <host runtime>   (change to any enabled runtime)
-  Critique:     <host runtime>   (change to any set of enabled runtimes)
+  Critique:     claude:<model>, codex   (one critic per runtime; change it)
 
   Repos in scope:
     <repo>  ─ <evidence>                    <N> commits behind <default>
@@ -84,9 +79,9 @@ Before I investigate — confirm or adjust:
 
   Not included: <repo> (<why>)
 
-  I plan to investigate (<N> parallel Solo agents):
-    1. <specific question>
-    2. <specific question>
+  I plan to investigate (<N> parallel workers):
+    1. <specific question>                  <model> · <effort>
+    2. <specific question>                  <model> · <effort>
 
   Decisions I expect to put to you:
     1. <the decision, in a phrase>
@@ -99,17 +94,14 @@ Accept this scope, or tell me which repo or question to add or cut.
 
 ## Research phase
 
-Run the confirmed investigation following `/research`, including its worker protocol. Spawn one
-Solo agent per area, on the gate A `Workers:` runtime. Workers signal the join, and the idle timer
-is the fallback, per `solo-agent-orchestration`. Workers document what exists and write only
-their own per-area scratchpad; you own the plan pad.
+Run the confirmed investigation following `/research` step 2: one `research-worker` per area, at
+the tier gate A confirmed, all spawned in one message. Wait for the completion notices, per
+`rules/agent-orchestration.md`. Workers document what exists and return it as their final
+message; you own the plan file.
 
-**If the user supplied a standalone research pad:** absorb its content into the plan pad under
-`### Research` in the appendix. Then `scratchpad_archive` the source. The archive hides the pad
-without deleting it, so the pad stays recoverable. Add anything new your investigation found.
-
-**If the user supplied a retro pad:** absorb its findings and its `## Proposed changes` the same
-way, and **do not archive it**. `skills/retro/SKILL.md` says why the next run needs it active.
+**If the user supplied a standalone research file:** absorb its content into the plan under
+`### Research` in the appendix. Then move the source into `<state>/archive/`. The move takes it
+out of the active set without deleting it. Add anything new your investigation found.
 
 ## Gate B — Grill the user
 
@@ -130,7 +122,7 @@ that case, propose defaults, flag them as proposals, and move to gate E.
 
 ## The census
 
-Run the inbound-reference census before you write the pad. It is a required step, not a
+Run the inbound-reference census before you write the plan. It is a required step, not a
 thoroughness reminder. Every slice must declare every path it touches. The census finds the
 paths you did not think of.
 
@@ -154,33 +146,16 @@ affected waves of fourteen. The census now decides what ships in parallel, not o
 what. `/implement` composes milestones from slices, and file overlap between two milestones
 forces them into sequence.
 
-## Write the pad
+## Write the plan
 
 Slug from `date +%Y-%m-%dt%H%M` plus a short topic.
 
-**The `t` is lowercase, and that is load-bearing.** This slug builds two KV keys, a branch name, a
-worktree path, and `COMPOSE_PROJECT_NAME`. Solo rejects an uppercase KV key outright. A rejected
-key reads exactly like a key nobody wrote. `/worktree` then takes its collision branch, and the
-run escalates over its own branch.
+**The `t` is lowercase, and that is load-bearing.** This slug builds a branch name, a worktree
+path, and `COMPOSE_PROJECT_NAME`. Compose rejects an uppercase project name, so an uppercase slug
+fails the first milestone's provisioning rather than the plan.
 
-```
-scratchpad_write(
-  name="plan/<slug>",
-  tags=["plan", "project:<repo>"],
-  content=<document below>
-)
-```
-
-Record the `scratchpad_id`. Revise with `scratchpad_edit`, and pass the current
-`expected_revision`. On a mismatch, re-read and retry. The `target` is an object, never a bare
-string, and it takes one of two forms:
-
-```
-{"type": "section", "section_heading": "<heading>"}
-{"type": "line_range", "offset": <n>, "limit": <n>}
-```
-
-`rules/solo-agent-orchestration.md` carries this shape under `## Locks and reports`.
+Write the document below to `<state>/plans/<slug>/plan.md`. Revise it in place with the Edit tool
+at every round of feedback, so the file stays the record of what the user agreed.
 
 ```
 # <Feature or task> Plan
@@ -228,10 +203,8 @@ One line per repo when more than one is in scope. The path is the container gate
 <absorbed and newly gathered findings — current state, architecture, each with `file:line`>
 
 ### References
-- Research absorbed from: <pad name and id, if any>
-- Retro absorbed from: <pad name and id, if any — that pad stays active>
-- Worker runtime: <name>
-- Critique roster: <runtime, one per critic>
+- Research absorbed from: <the research file, if any — now in archive/>
+- Critique roster: <one entry per critic, such as claude:opus, codex>
 ```
 
 The plan leads and the evidence follows. One `**Repos**:` line carries the container path
@@ -285,15 +258,15 @@ Rules the rest of the workflow depends on:
 
 ## Gate E — Approval and fork
 
-Optionally run `/critique plan/<slug>` first, with the gate A `Critique:` roster, and fold in what
-survives.
+Optionally run `/critique <the plan file>` first, with the gate A `Critique:` roster, and fold in
+what survives.
 
 Present the design — the slices, their file scopes, and any constraint that ties two together:
 
 **Approve — `plan/<slug>`**
 
 ```
-Plan: plan/<slug>  (id <n>)
+Plan: <state>/plans/<slug>/plan.md
 
   <name>            rules/*.md
   <name>            skills/*.md        same-worker as <name>
@@ -310,7 +283,7 @@ Approve the plan?
 schedules those at decomposition, against facts that are current then, and gates them
 separately. A plan that fixes the schedule forces an approval on evidence nobody has yet.
 
-Iterate on feedback and update the pad each time. **Do not proceed past this gate without
+Iterate on feedback and update the plan file each time. **Do not proceed past this gate without
 explicit approval.**
 
 Once the user approves:
@@ -321,21 +294,19 @@ Once the user approves:
 Plan approved. What next?
 
   1. Implement now   — I'll start /implement; you'll next see its roster gate
-  2. Stash for later — park it in a tracker via /stash
-  3. Leave active    — pad stays in Solo; run /implement plan/<slug> whenever
+  2. Leave active    — the plan stays in <state>/plans/; run /implement <slug> whenever
 ```
 
-I recommend <one of the three>, because <the ground>.
+I recommend <one of the two>, because <the ground>.
 
-⏸ waiting on you: pick one of the three for `plan/<slug>`
+⏸ waiting on you: pick one of the two for `plan/<slug>`
 
-`rules/chat-vocabulary.md` makes that line mandatory. This `Deciding` presents three options you
+`rules/chat-vocabulary.md` makes that line mandatory. This `Deciding` presents two options you
 did not rank, so it never counts as its own recommendation.
 
-- **Implement now** — call `/implement plan/<slug>`, with the pad as the first argument. Print no
+- **Implement now** — call `/implement <slug>`, with the slug as the first argument. Print no
   command for the user to type. The next stop is that skill's roster gate.
-- **Stash for later** — hand to `/stash`, which proposes the tracker shape and confirms.
-- **Leave active** — do nothing. The pad stays in Solo.
+- **Leave active** — do nothing. The plan stays in `<state>/plans/<slug>/`.
 
 **Do not ask for the critique roster here.** Gate A already settled it. One run holds one roster,
 and two skills asking for it turns one stop into two.
@@ -349,4 +320,5 @@ and two skills asking for it turns one stop into two.
 - **No open questions in the plan.** Research it or ask. An unresolved question in an approved
   plan becomes a deviation during implementation.
 - **Separate automated from manual verification.** `/implement` treats them differently.
-- **Scratchpads hold documents; todos hold work.** Never duplicate the plan into a todo body.
+- **`plan.md` holds the plan; `state.yml` holds the schedule.** `/implement` writes the second.
+  Never duplicate the plan into it.

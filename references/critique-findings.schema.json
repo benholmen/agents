@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["blocked", "findings"],
+  "properties": {
+    "blocked": {"type": "string"},
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["severity", "lens", "location", "claim", "failure", "fix"],
+        "properties": {
+          "severity": {"type": "string", "enum": ["bug", "risk", "nit"]},
+          "lens": {"type": "string"},
+          "location": {"type": "string"},
+          "claim": {"type": "string"},
+          "failure": {"type": "string"},
+          "fix": {"type": "string"}
+        }
+      }
+    }
+  }
+}

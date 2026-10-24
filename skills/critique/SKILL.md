@@ -20,19 +20,19 @@ This skill runs standalone. `/plan` calls it on a draft plan, and `/implement` c
 | `$ARGUMENTS` | Target |
 |---|---|
 | *(empty)* | the working tree diff; falls back to `<default>...HEAD` — resolved from `origin/HEAD`, never hardcoded — if the tree is clean |
-| `plan/<slug>` or a pad id | a draft plan |
+| a plan file, or a plan slug | a draft plan |
 | `--roster` | `/implement`'s proposed decomposition — grouping, waves, and tiers, before anything spawns |
 | one or more paths | those files |
 | `--pr <N>` | that pull request (`gh pr diff <N>`) |
 | `--base <ref>` | diff against that ref instead |
 | `--integration <slug>` | every landed milestone of that plan, together |
-| `--plan <pad>` | modifier — pairs an approved plan with the target the other arguments resolve |
+| `--plan <file>` | modifier — pairs an approved plan with the target the other arguments resolve |
 
 State what you resolved before you proceed. If the target is empty — clean tree, no changes —
 say so and stop rather than reviewing nothing.
 
 `--plan` resolves no target of its own, and it carries the plan the fidelity lens checks against.
-`/implement` always passes it. Resolve the pad before you spawn anything. A pad id you cannot
+`/implement` always passes it. Resolve the plan file before you spawn anything. A plan you cannot
 read is a stop, never a silent drop — see step 3.
 
 `--integration` is the only target that takes the integration lens set. `/implement`'s milestone
@@ -41,12 +41,12 @@ loop is its caller, and it calls once the last milestone has pushed.
 **Resolve `--integration <slug>` before you spawn anything.** No other target names its refs
 indirectly, so this is the one target you assemble:
 
-1. Read every `plan:<slug>:milestone:<m>:branch:<repo>` key. Each value is one branch, and the key
-   names the milestone and the repository it belongs to. `/implement` deletes these keys at Close,
+1. Read `<state>/plans/<slug>/state.yml`. Each `milestones.<m>.repos.<repo>` entry names one
+   branch and the base its milestone cut from. `/implement` archives that directory at Close,
    which runs after this pass.
-2. Take each repository's container path from the plan pad's `**Repos**:` line. `--plan` carries
-   that pad, and `/implement` always passes it.
-3. Fetch, then diff each branch against the base its own milestone cut from:
+2. Take each repository's container path from the plan's `**Repos**:` line. `--plan` carries the
+   plan, and `/implement` always passes it.
+3. Fetch, then diff each branch against its own base:
    ```bash
    git --git-dir="<container>/.git" fetch origin
    git --git-dir="<container>/.git" diff <base>..<branch>
@@ -58,54 +58,67 @@ The target is every one of those diffs together. **Use the bare repository, neve
 An earlier milestone's teardown removed the worktree of every repository the last milestone did
 not touch. A bare repository reads a branch without a checkout, so it reaches all of them.
 
-Stop and say so where a key is absent, or where a branch does not resolve. A partial target
+Stop and say so where an entry is absent, or where a branch does not resolve. A partial target
 answers `Plan completeness` wrongly, and that lens is why this pass exists.
 
-**Resolve the critic report pad name here.** Each critic writes to
-`critique/<slug>/<milestone-or-integration>/<model>`. The three segments resolve like this:
+**Resolve the critique directory here.** Every critic reads its target from it, and every
+headless critic writes its output there. `<state>` is the state directory
+`rules/agent-orchestration.md` defines.
 
 ```
-  slug                       the plan's slug. Where no plan resolved, a lowercase slug of the
-                             target: `pr-42`, `working-tree`, or the path with `/` as `-`
-  milestone-or-integration   the milestone `/implement` is shipping, plus the repository name
-                             where that milestone spans more than one; `integration` for
-                             `--integration`; `roster` for `--roster`; `standalone` otherwise
-  model                      the critic's model name, from the roster
+  under a plan     <state>/plans/<slug>/critique/<segment>/
+  standalone       <state>/critique/<slug>/<segment>/
+
+  slug        the plan's slug. Where no plan resolved, a lowercase slug of the target:
+              `pr-42`, `working-tree`, or the path with `/` as `-`
+  segment     the milestone `/implement` is shipping, plus the repository name where that
+              milestone spans more than one; `integration` for `--integration`; `roster` for
+              `--roster`; `standalone` otherwise
 ```
 
 `/implement` calls this skill once per repository per milestone, and once more after the last one
-pushes. The repository belongs in the middle segment for the same reason the milestone does.
-Two repositories in one milestone would otherwise write one pad twice.
+pushes. The repository belongs in the segment for the same reason the milestone does. Two
+repositories in one milestone would otherwise write one directory twice.
 
-Omit the middle segment, and M2's pad overwrites M1's. Step 6 archives every pad after the merge,
-so that overwrite leaves no trace.
+Write the resolved target into that directory as `target.diff`, or `target.md` for a plan or a
+roster. A critic then reads one file rather than re-deriving refs.
 
 A roster is a real target, because an approved artifact has its own failure modes. The roster
 fidelity lens in step 3 names them.
 
 ## Step 2 — Choose the models
 
-Always ask, unless the caller already supplied a roster:
+Always ask, unless the caller already supplied a roster.
 
-```
-list_agent_tools  →  Claude (3), Copilot (8), Kimi (9), ...
-```
+A roster entry is `claude:<model>` or `codex[:<model>]`. Claude is the host, so a Claude entry
+runs as a `critique-worker` subagent. A Codex entry runs headless, and it needs the `codex`
+binary. Check for it with `command -v codex`, and offer it only where that succeeds. Omit a Codex
+model to take the default from `~/.codex/config.toml`.
+
+**The default roster is one Claude critic and one Codex critic:** `claude:<the session's model>,
+codex`. Recommend it whenever `codex` is present. Two runtimes miss more different defects than
+two models of one runtime. Two critics also give the agreement signal, so the run needs no
+refutation pass. Where `codex` is absent, fall back to the Claude critic alone, and say that the
+refutation pass then stands in for agreement.
 
 **Deciding — the critique roster**
 
 ```
-found:        <n> enabled runtimes — <name>, <name>, <name>
+found:        claude (host), codex <present | absent>
 decision:     each model misses different defects, and only you know the budget
-two or more   cross-model agreement, which is evidence that a defect is real
-one           cheaper, and a refutation pass stands in for the agreement evidence
+default       claude:<model>, codex: one critic per runtime, and cross-model agreement
+one           claude alone: cheaper, and a refutation pass stands in for agreement
+more          a second Claude model: more coverage, at one more critic's cost
 ```
 
-Which models should critique this? I recommend <the models>, because <the ground>.
+Which models should critique this? I recommend `claude:<model>, codex`, because one critic per
+runtime finds the widest spread of defects for two critics' cost.
 
 ⏸ waiting on you: name the models for this critique
 
-Use only enabled runtimes — never assume a fixed set. Each model misses different defects,
-which is the point. Independent critics find more defects than one critic that you run repeatedly.
+Each model misses different defects, which is the point. Independent critics find more defects
+than one critic that you run repeatedly. A Claude model beside a Codex model is more independent
+than two Claude models.
 
 When `/plan` or `/implement` calls this skill, it already chose the roster. Use that roster, and
 do not ask again.
@@ -134,7 +147,7 @@ specifies a wrong result carries a correctness defect.
 
 **Plan fidelity drops silently only when the caller offered no `--plan`.** A standalone
 `/critique src/foo.php` has nothing to check fidelity against. When a caller offered `--plan` and
-the pad does not resolve, stop and say so. Never drop the lens quietly on a pad you cannot read.
+the plan does not resolve, stop and say so. Never drop the lens quietly on a plan you cannot read.
 
 ### Integration lenses
 
@@ -159,86 +172,53 @@ answers the other.
 
 ## Step 4 — Run the critics
 
-Spawn one Solo worker per selected model, each running all applicable lenses over the whole
-target. Use `spawn_agent`, per `solo-agent-orchestration` — a vendor sub-agent runs only the
-session's model, and this skill needs more than one.
+Run one critic per roster entry, each running all applicable lenses over the whole target. Follow
+`rules/agent-orchestration.md`. Every critic is a read-only worker, at effort `high` or above,
+because this is judgment work.
 
-Call `whoami` first and keep the returned `process_id` — every critic needs it to signal back.
-
-```
-spawn_agent(agent_tool_id=<id>, name="critique-<model>", extra_args=[
-  <the effort argument, at high or above — this is judgment work>,
-  <the auto-approval argument from the adapter>,
-  <the immutable-target arguments from the adapter — writable scratch, unwritable
-   target, unrestricted reads>])
-  → process_id, agent_instructions
-```
-
-The roster spans runtimes, so read an adapter per critic. `list_agent_tools` returns a
-`tool_type` for each, and `references/runtime-<tool_type>.md` lists its arguments. Each adapter
-also names the startup behavior that eats a worker's first input. Never use a bypass mode, even
-though a critic only reads.
-
-Do not pass a model argument — the roster *is* the model choice. An override would remove the
-independence this skill depends on. Raise the effort instead; it finds more real defects.
-
-**Every critic is an immutable-target worker.** `solo-agent-orchestration` gives that posture,
-and the adapter gives what each runtime can enforce for it. Where the target stays writable,
-say so in the prompt rather than asserting a denial the runtime lacks.
-
-Give each worker only the target and the approved plan, not the reasoning behind them.
-A critic that already knows why the code is good is no longer a critic.
-
-**The adversarial-review caveat.** A reviewer asked to find gaps reports some even when the
-work is sound, because that is the assignment. Tell the critic to flag only what affects
-correctness or the stated requirements, and to treat the rest as optional.
-
-Write the worker's brief to a scratchpad, per `solo-agent-orchestration`'s **The worker brief
-pad**:
+Write the brief once, to `brief.md` in the critique directory. Every critic gets the same brief:
 
 ```
-  ## Solo context   agent_instructions, pasted verbatim
-  ## Objective      review the target adversarially — carry what step 1 resolved: the diff
-    text itself, or the exact refs and container paths, never `<target>`'s name alone; the
-    applicable lenses (step 3); the approved plan `--plan` resolved, or "none"; the
-    adversarial-review caveat above
-  ## Boundaries     the repository path the target belongs to; the target is immutable; run
-    no git write command; write only the critic's scratch directory (absolute) or its Solo
-    scratchpad; when stuck, record and stop
-  ## Tool guidance  per finding: severity (bug | risk | nit), location (file:line), claim,
-    a concrete failure or a statement that none exists, and a fix; never suggest a feature,
-    a refactor, or scope growth; never say "add tests" without naming the untested path
-  ## Output format  write to the scratchpad step 1 resolved
-  ## Completion     timer_set per `solo-agent-orchestration`'s Workers signal completion
+  ## Objective       review the target adversarially. Name the target file in the critique
+                     directory, the applicable lenses (step 3), and the approved plan's path, or
+                     "none"
+  ## Boundaries      the repository the target belongs to; the target is immutable
+  ## Tool guidance   read the target file first, then whatever code it touches
+  ## Output format   one finding per defect, in the shape of
+                     ~/.claude/references/critique-findings.schema.json
 ```
 
-Send only the pointer, per **The pointer shape** under **The PTY ceiling**:
+**Give each critic only the target and the approved plan, not the reasoning behind them.** A
+critic that already knows why the code is good is no longer a critic. That is why a critic is a
+fresh subagent, never a fork.
+
+Start every critic in one message, so they run concurrently:
 
 ```
-send_input(process_id, input=<pointer to the brief pad, naming its id>)
+Agent(subagent_type="critique-worker", description="critique <model>", model=<model>,
+      effort=<high or above>, prompt=<the contents of brief.md>)
+
+Bash(run_in_background=true, command=<the command in references/runtime-codex.md>)
 ```
 
-Before arming the guard, write a guard pad per `solo-agent-orchestration`'s **The guard pad**.
-It carries the watch list — process id, model, report pad id — and the branches. Arm the timer
-only once the critics produce output. `implement-waves.md`'s **The join** gives the reason: an
-entirely idle watch list returns `already_satisfied` and creates no timer. Check the return
-value for that case, then arm one idle timer as the dead-worker fallback only:
+**Never write a headless launch argument from memory.** Read `references/runtime-codex.md`
+before you start a Codex critic. It carries the command, the version it was measured against, and
+what a failed run looks like.
 
-```
-timer_fire_when_idle_all(processes=[<pids>], max_wait_ms=<generous guard>,
-  body="Critique guard fired. A critic that never signalled is a failure to investigate,
-        not a completion. Procedure: scratchpad_read(scratchpad_id=<guard pad id>)")
-  → timer_id
-```
+**Where the target stays writable, say so in the brief rather than assert a denial.** A
+`critique-worker` cannot write, and a Codex critic runs in a read-only sandbox. On a Codex host, a
+subagent critic is read-only by request alone, per `rules/agent-orchestration.md`.
 
-Keep the returned `timer_id`. When the last critic signals, `timer_cancel(timer_id=<id>)` before
-you merge findings. A guard you leave armed fires later and arrives as an instruction about
-critics that finished long ago.
+Wait for every critic's completion notice. A subagent's notice and a background command's exit
+notice both count. Never poll.
 
 ## Step 5 — Merge
 
-Read each worker's scratchpad. Match findings that describe the same defect at the same
-location, even when the wording differs.
+Read each critic's findings: the fenced `json` block that ends a `critique-worker`'s final
+message, and `codex.json` for a Codex critic. A critic whose `blocked` is non-empty did not finish.
+Say so in the ledger, and merge what it did report.
+
+Match findings that describe the same defect at the same location, even when the wording differs.
 
 **Cross-model agreement raises confidence, and it drops nothing.** Every merged finding enters
 step 6, whether one critic found it or every critic did.
@@ -252,9 +232,10 @@ discards exactly the findings a multi-model roster exists to produce.
 the user, and none of them names agreement. `1b15feba` finding 1 carried three-model agreement,
 and the user delegated it anyway. Two two-model findings turned out to be no findings at all.
 
-**When you select only one model**, no agreement signal exists at all. Run a refutation pass
-instead. Spawn one more worker per finding, and tell it to argue that the finding is *not* real.
-It defaults to refuted when it is uncertain. Drop what it refutes.
+**When the roster holds one model**, no agreement signal exists at all. Run a refutation pass
+instead. Spawn one `refute-worker` per finding, all in one message, and give each one the
+finding, the target file, and the plan. It defaults to refuted when it is uncertain. Drop what it
+refutes.
 
 ## Step 6 — Filter, then escalate what the user must decide
 
@@ -276,9 +257,9 @@ milestone it reviews already shipped its PRs. A finding against M1 cannot land o
 branch already carries an open or merged PR. Write it into whatever tree stands open, and M1's fix
 lands on another milestone's branch.
 
-Never write into the user's stable `main` worktree. `rules/solo-agent-orchestration.md` keeps a
-worker out of the user's tree, and `pr-first-contributions` forbids a commit on the default branch.
-An accepted remedy therefore lands as a follow-up milestone, and `/implement` proposes one.
+Never write into the user's stable `main` worktree. `rules/agent-orchestration.md` keeps a worker
+out of the user's tree, and `pr-first-contributions` forbids a commit on the default branch. An
+accepted remedy therefore lands as a follow-up milestone, and `/implement` proposes one.
 
 ### The six criteria
 
@@ -372,9 +353,8 @@ Every finding carries a severity — `bug` (wrong behavior), `risk` (plausible f
 `/critique` owns the filter, the ledger, and this presentation. `/plan` and `/implement` receive
 the ledger rather than the raw findings, so nobody triages a finding twice.
 
-`close_process` every worker, and archive the per-model scratchpads. Those pads are the
-worker-to-orchestrator channel that `solo-agent-orchestration` requires. They cost nothing to
-archive after you merge the findings.
+The critique directory keeps the target, the brief, and each headless critic's output. Leave it
+in place. It moves to `archive/` with its plan.
 
 If nothing survives, there is no ledger and no decision to request. Report the action alone —
 one line, no findings block, no closing question:

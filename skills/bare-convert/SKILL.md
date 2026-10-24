@@ -17,7 +17,7 @@ you work in, so it reports every path before it acts.
 Script writes the repository's provisioning script, or updates one that went stale. Set up and
 convert both end there. Run it alone against a container that already exists.
 
-`rules/solo-agent-orchestration.md` carries the worktree standard. This skill implements that
+`rules/agent-orchestration.md` carries the worktree standard. This skill implements that
 standard and invents no second convention.
 
 `/worktree` owns cut, provision, and teardown, and it defines the provisioning contract. This

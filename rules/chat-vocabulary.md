@@ -9,9 +9,9 @@ and one footer for the text that does. The user reads the heading and knows what
 message that carries neither a heading nor the footer needs no reply, so the user can read it
 later.
 
-Two facts from real runs set this rule. 448 of 1,303 user-role turns were Solo timer bodies,
-which the user never typed. No marker anywhere meant "reply needed", so 13 questions vanished
-under the next timer turn.
+Two facts from real runs set this rule. 448 of 1,303 user-role turns were automated worker
+signals, which the user never typed. No marker anywhere meant "reply needed", so 13 questions
+vanished under the next automated turn.
 
 Declined: a `references/chat-vocabulary.md` adapter. A missing convention fails silently, and
 `README.md` gives that as the test for a rule rather than a reference.
@@ -31,7 +31,7 @@ the user to read every turn again.
 - **Default:** Send no heading, and send no footer.
 - **Cadence:** In an `/implement` run, speak on your own initiative on five occasions only.
 - **The five occasions:** a gate, a wave join, a milestone landing, an escalation, and a failure.
-- **Every other skill:** speak where the skill's own steps say to speak. A `/research` pad report
+- **Every other skill:** speak where the skill's own steps say to speak. A `/research` file report
   is one such message, and it carries no heading.
 - **Global parts:** the six headings and the footer hold in every skill. The cadence above holds
   in `/implement` alone.
@@ -156,8 +156,8 @@ restating it.
 
 **A question that offers nothing to rank drops part 2 and the recommendation.** It has no option to
 cost and nothing to recommend. The heading, the question, and the footer are the whole message.
-The first question of `/plan`, `/research`, and `/retro` is that shape. `/implement`'s lists the
-active plan pads, so it offers options and takes the full shape.
+The first question of `/plan` and `/research` is that shape. `/implement`'s lists the active
+plans, so it offers options and takes the full shape.
 
 The context block carries what you found, why the user must choose, and the cost of each option:
 

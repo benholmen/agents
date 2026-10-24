@@ -20,6 +20,7 @@ Claude reads directories of rules and skills, so each one links per entry:
 
   ~/.claude/rules/<name>.md         -> rules/<name>.md          (per file)
   ~/.claude/skills/<name>           -> skills/<name>/            (per skill)
+  ~/.claude/agents/<name>.md        -> agents/<name>.md         (per file)
   ~/.claude/references              -> references/               (whole directory)
 
 Codex reads skills from ~/.agents/skills and follows symlinks, so those link
@@ -34,15 +35,18 @@ Rules and skills are linked one at a time, so the directories stay real ones
 you own. Anything else you keep there is left alone, and nothing you create
 locally lands in this repo.
 
-The /worktree clone helper links to a stable path, so a per-repository
-provisioning script can call it without knowing where this repo lives:
+The /worktree clone helper and the implement-worker git hook link to stable
+paths, so a provisioning script and an agent definition can call them without
+knowing where this repo lives:
 
-  ~/.claude/bin/wt-clone.sh     -> scripts/wt-clone.sh
+  ~/.claude/bin/wt-clone.sh          -> scripts/wt-clone.sh
+  ~/.claude/bin/deny-git-writes.sh   -> scripts/deny-git-writes.sh
 
-Re-run after adding or renaming a file. The per-entry links -- rules and
-skills -- are pruned once their source has gone, and nothing else is touched.
-The two direct links, references/ and bin/wt-clone.sh, are not pruned, so
-renaming either source leaves the old link dangling.
+Re-run after adding or renaming a file. The per-entry links -- rules, skills,
+and agents -- are pruned once their source has gone, and so is a per-entry
+link into another checkout of this repository that has no counterpart here.
+Nothing else is touched. The direct links, references/ and the two in bin/,
+are not pruned, so renaming one of those sources leaves the old link dangling.
 
 A generated ~/.codex/AGENTS.md is the one file this repository writes rather
 than links, because Codex gives it no other shape. An existing file that we
@@ -92,6 +96,15 @@ link() {
   echo "  linked: ${shown}"
 }
 
+from_other_checkout() {
+  local target="$1" kind="$2"
+  [[ "$(basename "$(dirname "${target}")")" == "${kind}" ]] || return 1
+  local root
+  root="$(dirname "$(dirname "${target}")")"
+  [[ "${root}" != "${REPO_ROOT}" ]] || return 1
+  grep -qF "${GEN_MARKER}" "${root}/scripts/install.sh" 2>/dev/null
+}
+
 # Link each entry of src_dir individually into dest_dir, then prune our own
 # stale links. Entries we did not create are never touched.
 #   $1 = directory name under both the repo and the destination root
@@ -139,10 +152,14 @@ link_entries() {
     [[ -L "${dest}" ]] || continue
     local target
     target="$(readlink "${dest}")"
-    [[ "${target}" == "${src_dir}/"* ]] || continue
-    if [[ ! -e "${target}" ]]; then
+    if [[ "${target}" == "${src_dir}/"* ]]; then
+      if [[ ! -e "${target}" ]]; then
+        rm -f "${dest}"
+        echo "  pruned: ${1}/$(basename "${dest}") (source removed)"
+      fi
+    elif from_other_checkout "${target}" "$1"; then
       rm -f "${dest}"
-      echo "  pruned: ${1}/$(basename "${dest}") (source removed)"
+      echo "  pruned: ${1}/$(basename "${dest}") (from ${target%/"$1"/*})"
     fi
   done
 
@@ -234,6 +251,7 @@ mkdir -p "${DEST}"
 echo "Installing for Claude..."
 link_entries rules files
 link_entries skills dirs
+link_entries agents files
 link "${REPO_ROOT}/references" "${DEST}/references"
 if [[ -L "${DEST}/bin" || ( -e "${DEST}/bin" && ! -d "${DEST}/bin" ) ]]; then
   mkdir -p "${BACKUP_DIR}"
@@ -242,6 +260,7 @@ if [[ -L "${DEST}/bin" || ( -e "${DEST}/bin" && ! -d "${DEST}/bin" ) ]]; then
 fi
 mkdir -p "${DEST}/bin"
 link "${REPO_ROOT}/scripts/wt-clone.sh" "${DEST}/bin/wt-clone.sh"
+link "${REPO_ROOT}/scripts/deny-git-writes.sh" "${DEST}/bin/deny-git-writes.sh"
 
 echo "Installing for Codex..."
 mkdir -p "${AGENTS_DEST}"
@@ -302,9 +321,8 @@ fi
 echo ""
 echo "Installed for both runtimes. Rules apply to every session; skills are"
 echo "slash commands on Claude and \$-invoked skills on Codex."
-echo "/research, /plan, /implement, /critique, /retro, /worktree, /stash and /recall"
-echo "require the Solo MCP server."
-echo "/stash and /recall additionally require a tracker MCP (see references/)."
+echo "Run state lives in ~/.agents/work. /critique offers a Codex critic only"
+echo "where the codex binary is installed."
 echo ""
-echo "Codex has no disable-model-invocation, so it can invoke /bare-convert and"
-echo "/stash itself. Their approval gates still hold."
+echo "Codex has no disable-model-invocation, so it can invoke /bare-convert"
+echo "itself. Its approval gate still holds."

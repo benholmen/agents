@@ -28,7 +28,7 @@ Correctness, error handling, security, and tests for the code you write now are 
 
 Naming a deliberately declined alternative is disclosure, not an offer of adjacent work. When you choose a simpler path over a more general one you considered seriously, name that alternative. Put the name in **one line at the point of the decision**. Never invent an alternative so that you have something to offer.
 
-During planning that same disclosure belongs in the pad's `## What We're NOT Doing` section rather than in chat.
+During planning that same disclosure belongs in the plan's `## What We're NOT Doing` section rather than in chat.
 
 ## Example
 
