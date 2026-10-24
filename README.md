@@ -1,4 +1,4 @@
-# agents-desktop
+# agents
 
 Claude Code and Codex configuration: always-on rules, plus a research, plan, and implement workflow
 built on each host's native subagents. Claude desktop is the primary host. Forked from Deven
@@ -63,6 +63,16 @@ agent takes effect immediately. The script prunes a per-entry link — a rule, a
 agent — whose source is gone. It never prunes the direct links: `references/` and the two in
 `bin/`. A renamed source there leaves a dangling link. It moves anything real in the way to
 `~/.claude/backups/` first. Override the repository root with `AGENTS_REPO=/path/to/agents`.
+
+### Uninstall
+
+```bash
+./scripts/uninstall.sh
+```
+
+It removes every link that resolves into this checkout, the `~/.codex/AGENTS.md` this checkout
+generated, and the git hooks the install wrote. It leaves everything else alone: your own files,
+links into another checkout, `~/.claude/backups/`, and the run state in `~/.agents/work`.
 
 ### Requirements
 
