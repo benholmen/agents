@@ -141,12 +141,17 @@ a `[1m]` variant. A skill sets `effort` only where the shape of the work justifi
 
 | Skill | `effort` | Why |
 |---|---|---|
-| `grill` | `xhigh` | pure judgment, no fan-out to multiply the cost |
-| the rest | inherits | a raise multiplies across their parallel agents |
+| `grill` | `xhigh` | pure judgment, so the depth pays on every run |
+| the rest | inherits | the session's effort is yours to choose, because every worker's is set on its spawn call |
+
+**Session effort and worker effort are separate.** A skill that fans out sets each worker's model
+and effort on that worker's own spawn call, per task. The session's effort governs the
+orchestrator alone: scoping, grilling, synthesis, the census, and triage. A raise therefore costs
+one session, not every worker. Run a `/plan` or `/implement` session at `xhigh`, and at `max`
+where a wrong plan is expensive.
 
 An effort override applies for the rest of the turn, and it resets on your next prompt. For
-one-off depth, put `ultrathink` in the prompt instead. A worker is different: the skill that
-spawns it sets its model and effort on the call, per task.
+one-off depth, put `ultrathink` in the prompt instead.
 
 ```mermaid
 flowchart LR
