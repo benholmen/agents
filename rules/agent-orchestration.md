@@ -186,8 +186,18 @@ readable and searchable, and it no longer claims its branches.
 
 ## One worktree per milestone
 
-A worker never shares a working tree with the user. Cut one worktree per milestone and per
-repository. Cut it from a bare-plus-worktrees layout, and use these paths:
+A worker never shares a working tree with the user unless the user chose that. `/implement`
+resolves one workspace mode per repository, and its roster gate names each one:
+
+```
+  container   a milestone worktree inside a converted repository
+  checkout    the user's own checkout, on the milestone's feature branch
+  main        the user's own checkout, committing on the default branch
+```
+
+`skills/implement/SKILL.md` carries the table that picks a mode when the user names none: a
+converted repository takes `container`, and a plain clone takes `checkout`. `container` cuts one
+worktree per milestone and per repository, from a bare-plus-worktrees layout, at these paths:
 
 ```
   container          <the repository's own path>                 at whatever depth it sits
@@ -237,8 +247,9 @@ reuse it and cut nothing. Where it holds anything else, stop and report both pat
 stopped before its push gate leaves its worktree standing on unpushed commits, so a resume finds
 the path already taken, and `git worktree add` exits 128 there.
 
-A plain clone fails loudly. Test the layout before you cut anything, and print the conversion
-command rather than a worktree path.
+**Test the layout before you cut anything.** A plain clone has no bare layout, so `/worktree`
+refuses it and prints the conversion command rather than a worktree path. `/implement` sends a
+plain clone to `checkout` before it gets that far.
 
 The worktree is disposable once the push succeeds, because the branch then lives on the remote.
 Remove it at milestone close.
@@ -248,8 +259,14 @@ branch cannot trample the user's working state. Git refuses to check out one bra
 worktrees, so the guarantee is structural rather than requested.
 
 **The safety comes from the worktree, not from the bare repository.** A plain clone that adds
-worktrees beside it earns the same guarantee. This standard still requires the bare layout, for
-symmetry and grouping. Every tree is a peer, and one container holds them all.
+worktrees beside it would earn the same guarantee. This standard still requires the bare layout,
+for symmetry and grouping: every tree is a peer, one container holds them all, and nothing nests
+inside the user's checkout. A worktree nested in a checkout shows up in everything that walks
+that checkout, from file watchers to a Compose bind mount of `./`.
+
+**`checkout` and `main` give that guarantee up, by the user's choice.** The run works in the
+user's own tree, so the tree must start clean, and the user stays off it until the run closes.
+The test for a branch applies there unchanged.
 
 ## On Codex
 
@@ -274,7 +291,7 @@ before it returns. Three things differ from Claude, and the roster gate disclose
 | A brief that leans on this conversation | The worker sees only its brief |
 | A brief that restates a rule | The worker already loaded the rules |
 | The orchestrating session in a bypass mode | Every background worker inherits it, and no reviewer sees anything |
-| A worker in the user's tree | The worker edits the tree the user sits in, and their working state is collateral |
+| A worker in the user's tree that the user did not choose | The worker edits the tree the user sits in, and their working state is collateral |
 | Treating the git hook as a sandbox | A variable or a script hides the command from it |
 | Committing a wave without the declared-path check | An undeclared write rides into a task's commit |
 | A worker writing `state.yml` | Two writers make one file inconsistent |

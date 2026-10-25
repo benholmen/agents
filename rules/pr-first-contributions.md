@@ -10,7 +10,7 @@ Contribute code through pull requests by default. The PR is the unit of contribu
 
 - **Default:** Deliver every repository change through a **PR**. Base it on the repo's default branch, resolved from `origin/HEAD`: `main`, `master`, or whatever it points to.
 - **Base:** The default branch is the usual base, not the only one. Work that depends on an unmerged branch bases on that branch instead. See `## Stacked PRs`.
-- **Exceptions:** Skip the PR workflow only when the user **clearly** instructs otherwise. Examples: "commit directly to main", "no PR", "push straight to default branch". If the request is ambiguous, ask once. Otherwise follow this rule.
+- **Exceptions:** Skip the PR workflow only when the user **clearly** instructs otherwise. Examples: "commit directly to main", "no PR", "push straight to default branch", `/implement --in main`. If the request is ambiguous, ask once. Otherwise follow this rule.
 - **Branch:** Cut a feature branch from the latest default branch, or from the unmerged branch this work depends on. Name it for the work and prefix it by type: `feat/…`, `fix/…`, `chore/…`. Never commit on the default branch.
 - **Commits:** Only create commits when the user asks or when the PR workflow clearly requires it. No secrets, no `--no-verify`, and no amend unless the user allows it.
 - **Pushes:** Never push or open a PR without explicit approval. Approval for one push does not carry to the next.

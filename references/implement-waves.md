@@ -8,6 +8,9 @@
 `<state>` is the state directory the rule defines, and this plan's directory is
 `<state>/plans/<slug>/`.
 
+A repository's worktree below is the tree step 1 of the milestone loop prepared. That is a
+worktree `/worktree` cut, or your own checkout in `checkout` and `main` mode.
+
 ## Schedule the waves
 
 Slices marked `same-worker` share one task. Slices marked `after` land in a later wave. Slices

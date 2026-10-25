@@ -1,7 +1,7 @@
 ---
 name: implement
 description: Execute an approved plan as a loop of milestones, each landing its own PRs
-argument-hint: "[<slug> | <plan file>] [--critique <roster>]"
+argument-hint: "[<slug> | <plan file>] [--in container|checkout|main] [--critique <roster>]"
 ---
 
 # Implement
@@ -30,6 +30,9 @@ directory is `<state>/plans/<slug>/`.
 
 - **A plan** (`<slug>`, or the path of its `plan.md`) — the normal case. A calling skill passes it
   here.
+- **`--in <mode>`** — where the work happens, for every repository in the run. See
+  [Where the work happens](#where-the-work-happens). Plain words carry it too: "work in my
+  checkout" is `checkout`, and "commit straight to main" is `main`.
 - **`--critique <roster>`** — the critique roster. Without it, read the plan's `### References`.
 - **An existing `state.yml` for the slug** — this is a resumed run. `state.yml` *is* the
   composition, so reuse it rather than composing again. Pick up at the first milestone that has
@@ -39,6 +42,47 @@ Read the plan fully. If none exists, send the user to `/plan`.
 
 With no plan named, list the active plans under `<state>/plans/` and ask which one. That opens a
 `Deciding` gate, per `rules/chat-vocabulary.md`, and a caller never reaches it.
+
+## Where the work happens
+
+Each repository runs in one of three workspace modes. `container` gives each milestone a tree of
+its own. The other two work in the folder you work in, the way a person would.
+
+```
+  container   a worktree inside a converted repository: <container>/<plan-slug>-<m>
+  checkout    your own checkout, on the milestone's feature branch
+  main        your own checkout, committing on the default branch, with no PR
+```
+
+`<container>` is the path on the plan's `**Repos**:` line. Your own checkout, `<checkout>` below,
+is `<container>/main` in a converted repository, and `<container>` itself in a plain clone.
+`<default>` is the branch `origin/HEAD` names.
+
+**Without `--in`, the repository's layout decides, by this table and nothing else:**
+
+```
+  converted repository (its .git is bare)      container
+  plain clone                                  checkout
+```
+
+Test the layout with `git --git-dir="<container>/.git" rev-parse --is-bare-repository`. A
+milestone worktree needs the bare layout, so a plain clone works in your checkout until you
+convert it with `/bare-convert`.
+
+**`--in` overrides the table for every repository.** Two choices still refuse:
+
+```
+  container on a plain clone       a plain clone has no bare layout. Convert it first
+  main without the user's words    the table never picks main. It needs --in main or plain words
+```
+
+`--in main` is the explicit instruction `pr-first-contributions` requires before a commit lands on
+the default branch. No other mode commits there.
+
+**`checkout` and `main` share your folder with the run.** The tree must hold no uncommitted work
+when the milestone starts, and you and your other sessions stay off it until the run closes. In
+exchange, it needs no provisioning: the run uses your `.env`, your installed dependencies, and the
+stack you already run.
 
 ## Speaking
 
@@ -59,7 +103,7 @@ Stop on these, and on nothing else:
 
 ```
   no plan
-  a /worktree refusal
+  a workspace refusal: a /worktree Blocked, or a checkout holding uncommitted work
   census drift
   a critique escalation, C1 to C6
   the roster gate
@@ -77,7 +121,8 @@ Skip anything the `/plan` fork already confirmed — do not re-ask what the user
    an `and`. That is the whole test.
 
    A milestone may span repositories, and it then lands **one PR per repository it touches**.
-   Each PR title states the milestone's outcome, scoped to its repository.
+   Each PR title states the milestone's outcome, scoped to its repository. A repository in `main`
+   mode lands a push to its default branch instead of a PR.
 2. **Order the milestones into a DAG.** Aggregate every slice's `after` constraint onto the
    milestones that hold the two slices. That aggregate is the dependency half of the order.
 
@@ -119,10 +164,13 @@ Skip anything the `/plan` fork already confirmed — do not re-ask what the user
               Add stacked-PR guidance to a general rule without turning it
               into an appendix.
 
+     Workspace:  agents   checkout   ~/repos/agents, one feature branch per milestone
+                          plain clone, not yet converted
+                          keep yourself and other sessions off it until the run closes
      Critique per milestone: <roster> — from the plan.
    ```
 
-   Adjust any milestone boundary, model, effort, or grouping, or approve as proposed.
+   Adjust any milestone boundary, model, effort, grouping, or workspace, or approve as proposed.
 
    ⏸ waiting on you: approve the roster, or name what to change
 
@@ -133,6 +181,11 @@ Skip anything the `/plan` fork already confirmed — do not re-ask what the user
 
    The roster is where a milestone that does two things, or two milestones that should be one,
    becomes obvious.
+
+   **The workspace line names every repository's mode, its tree, and the fact that decided it.**
+   That fact is `--in`, the user's words, or the row of the layout table that matched. The user
+   can change any repository's mode here. Add the shared-folder line wherever a repository runs
+   in `checkout` or `main`. For `main`, say that commits land on the default branch with no PR.
 
    **The critique line comes from the plan.** `/plan` records it under `### References`, and
    `--critique` overrides it. Restate it in this gate as a line the user can change, and ask
@@ -150,6 +203,10 @@ Skip anything the `/plan` fork already confirmed — do not re-ask what the user
    ```yaml
    plan: <slug>
    critique: [<roster entry>, ...]
+   workspace:
+     <repo>:
+       mode: checkout
+       start: <the branch your checkout was on, set by milestone loop step 1>
    milestones:
      m1:
        outcome: <one sentence>
@@ -179,6 +236,9 @@ Skip anything the `/plan` fork already confirmed — do not re-ask what the user
    A milestone's `status` moves from `pending` to `running` to `landed`. A task's moves from
    `pending` to `running` to `committed`, or to `escalated`. Keys are lowercase.
 
+   In `main` mode a repository's `branch` is the default branch, its `base` is the commit the
+   milestone started from, and step 7 adds `head`, the commit it pushed. It records no `pr`.
+
    Then write one **task spec** per task, at `<state>/plans/<slug>/tasks/<m>-<task>.md`. It
    carries the slices the task covers, their files, their verification, and their proof commands.
    The plan holds slices; the spec holds the grouping. The worker reads its own spec, so this is
@@ -201,40 +261,84 @@ milestone, then starts again at step 1. Two milestones never run at once, whatev
 edges allow. This skill therefore offers no concurrency setting, and it asks the user for none.
 The waves inside one milestone still run their tasks concurrently — that is step 3's job.
 
-1. **Cut a worktree and branch for each repository the milestone touches.** Confirm the branch is
-   recorded in `state.yml` first, then cut:
+1. **Prepare each repository's tree, in its workspace mode.** Record the branch in `state.yml`
+   first, then prepare the tree:
    ```
    state.yml: milestones.<m>.repos.<repo>.branch = <branch>
+   ```
+   **The record goes first, and that order is load-bearing.** The branch test reads it to tell a
+   resume from a collision. Write it after the tree exists, and a run that dies between the two
+   takes the collision branch. It then escalates over its own branch.
+
+   The branch is `<type>/<slug>-<milestone>`, per `rules/agent-orchestration.md`, and in `main`
+   mode it is the default branch. The base is `origin/HEAD`, or the predecessor milestone's
+   branch in that repository when the milestones stack there. `<type>` is `feat`, `fix`, or
+   `chore`, and this skill holds that choice.
+
+   **`container` cuts through `/worktree`:**
+   ```
    /worktree cut <container path from the plan's **Repos**: line> <milestone> <branch> <base>
    ```
-   **The record goes first, and that order is load-bearing.** `/worktree` reads it to tell a
-   resume from a collision. Write it after the cut, and a run that dies between the two takes the
-   collision branch. It then escalates over its own branch.
-
    **Pass the container path, never the repository name.** `/worktree` substitutes it into
    `--git-dir`. Pass `agents` instead, and cut mode resolves against the session's working
-   directory and refuses an already-converted repository. `/plan` records the container path on
-   its `**Repos**:` line. `<repo>` stays the short name in every `state.yml` key.
+   directory. `/plan` records the container path on its `**Repos**:` line. `<repo>` stays the
+   short name in every `state.yml` key.
 
-   That skill owns the layout, the provisioning, the naming, and every refusal it states. Add
-   nothing to its procedure, and do not paraphrase it.
+   **Pass the branch and the base, because `/worktree` builds neither.** Let it construct the name
+   a second time, and the two can differ from the record you just wrote. That skill owns the
+   layout, the provisioning, and every refusal it states. Add nothing to its procedure, and do not
+   paraphrase it.
 
-   **A `Blocked` from `/worktree` stops this milestone.** It refuses a plain clone, and it refuses
-   a repository that carries no provisioning script. Pass that report to the user as it stands, and
-   cut no second worktree. The tree it kept is the one the retry reuses.
-
-   The branch is `<type>/<slug>-<milestone>`, per `rules/agent-orchestration.md`. The base is
-   `origin/HEAD`, or the predecessor milestone's branch in that repository when the milestones
-   stack there. **Pass both to `/worktree`, which builds neither.** `<type>` is `feat`, `fix`, or
-   `chore`, and this skill holds that choice. Let `/worktree` construct the name a second time, and
-   the two can differ from the record you just wrote.
+   **A `Blocked` from `/worktree` stops this milestone.** A converted repository with no
+   provisioning script is the common case. Pass that report to the user as it stands, and cut no
+   second worktree. The tree it kept is the one the retry reuses.
 
    **A resumed run may find the worktree still standing.** A run that stopped before its push gate
    leaves one behind, and `rules/agent-orchestration.md` carries both tests. Reuse a recorded path
    that holds this milestone's branch, and stop where it holds anything else.
 
-   `/worktree` reports the tree path. Record it under `milestones.<m>.repos.<repo>.worktree`, and
-   set the milestone's `status` to `running`.
+   **`checkout` branches in your own checkout:**
+   ```bash
+   git -C "<checkout>" status --porcelain
+   git -C "<checkout>" symbolic-ref --short HEAD
+   git -C "<checkout>" fetch origin
+   git -C "<checkout>" switch -c "<branch>" "<base>"
+   ```
+   **`main` brings your checkout level with the default branch:**
+   ```bash
+   git -C "<checkout>" status --porcelain
+   git -C "<checkout>" symbolic-ref --short HEAD
+   git -C "<checkout>" fetch origin
+   git -C "<checkout>" switch "<default>"
+   git -C "<checkout>" merge --ff-only "origin/<default>"
+   git -C "<checkout>" rev-parse HEAD
+   ```
+   In both, the status must print nothing. On the run's first milestone, record the
+   `symbolic-ref` answer as `workspace.<repo>.start`, so Close can return the checkout there. In
+   `main`, record the last command's commit as the milestone's `base`. A refused fast-forward
+   means your default branch holds commits the remote lacks, so stop and put it to the user.
+
+   **A `checkout` resume finds its branch already there.** Switch to it with no `-c`. The rule's
+   three branch cases apply to a checkout exactly as they do to a cut worktree.
+
+   **Uncommitted work in your checkout stops this milestone.** That work is yours, and a branch
+   switch would carry it into the run's first commit.
+
+   **Blocked — `<checkout>` holds uncommitted work**
+
+   ```
+   found:      <the git status --porcelain lines>
+   options:    commit or stash it yourself, then resume
+               convert <repo> with /bare-convert, which carries the work into main/,
+               then run it in container
+
+   I recommend <the option>, because <the ground it rests on>.
+   ```
+
+   ⏸ waiting on you: clear `<checkout>`, or convert `<repo>`
+
+   Record the tree under `milestones.<m>.repos.<repo>.worktree`: the path `/worktree` reported, or
+   `<checkout>` itself. Then set the milestone's `status` to `running`.
 2. **Re-check the census in the worktree.** The plan's `**Files**:` lists came from a census at
    plan time. Repeat it now for this milestone's slices, in the tree you just cut.
    `/plan` names what it searches for: the caller, the test, and the standard your change
@@ -251,7 +355,8 @@ The waves inside one milestone still run their tasks concurrently — that is st
    /critique --base <that repository's effective base> --plan <the plan file>
    ```
    A repository's effective base is the ref step 1 cut from there. That is `origin/HEAD`, or the
-   predecessor milestone's branch where those milestones stack.
+   predecessor milestone's branch where those milestones stack. In `main` mode it is the commit
+   step 1 recorded as `base`.
 
    **One `--base` cannot express two repositories.** Repository A stacks on `fix/<slug>-m1` while
    repository B starts from `origin/HEAD`. One ref is then wrong for one of them. It either fails
@@ -280,7 +385,7 @@ The waves inside one milestone still run their tasks concurrently — that is st
 
    ```
      <repo>   <N> commits   base <branch>   "<the PR title>"
-     <repo>   <N> commits   base <branch>   "<the PR title>"
+     <repo>   <N> commits   push to <default>, no PR
 
      Quality gates: <results>
    ```
@@ -289,6 +394,12 @@ The waves inside one milestone still run their tasks concurrently — that is st
 7. **Push and open one PR per repository the milestone touches.** Follow
    `pr-first-contributions`, which owns the stacked-PR base and the title spec. Update an open PR
    rather than opening a second one. Record each PR under `milestones.<m>.repos.<repo>.pr`.
+
+   **A `main` repository pushes its default branch and opens no PR:**
+   ```bash
+   git -C "<checkout>" push origin "<default>"
+   ```
+   Record the pushed commit as `head`.
 8. **Run the integration critique, once the last milestone has pushed.** This is a step, not an
    option. Skip it on every earlier milestone.
    ```
@@ -320,6 +431,7 @@ The waves inside one milestone still run their tasks concurrently — that is st
 
      <repo>   <PR url>   <N> commits   base <the default branch>
      <repo>   <PR url>   <N> commits   base <the predecessor milestone's branch>
+     <repo>   pushed to <default>   <N> commits   <base>..<head>
 
      Quality gates: <results>
      Critique:      <N> findings, <M> presented, <models>
@@ -334,11 +446,12 @@ The waves inside one milestone still run their tasks concurrently — that is st
 10. **Tear down and clean up.** Do all three, in this order:
     ```
     stop any worker of this milestone that still runs, with TaskStop
-    stop the stack and remove the worktree, per /worktree's teardown block
+    container: stop the stack and remove the worktree, per /worktree's teardown block
     set the milestone's status to landed in state.yml
     ```
     The branch lives on the remote once the push succeeds, so the worktree is disposable. A worker
-    still running here would write into a tree that teardown removes.
+    still running here would write into a tree that teardown removes. A `checkout` or `main` tree
+    stays as it is, because it is yours, and the next milestone branches from there.
 
 Then start the next milestone.
 
@@ -397,12 +510,15 @@ its own worktrees, and step 9 reported the integration critique. Nothing here op
 
 1. Confirm no worker of this run still runs. Stop any that does, with `TaskStop`.
 2. `git worktree prune` in each container, per `rules/agent-orchestration.md`.
-3. Move `<state>/plans/<slug>/` into `<state>/archive/` whole. It has served its purpose, and
+3. Return each `checkout` or `main` repository to the branch it started on, where its tree is
+   clean: `git -C "<checkout>" switch "<workspace.<repo>.start>"`.
+4. Move `<state>/plans/<slug>/` into `<state>/archive/` whole. It has served its purpose, and
    once archived it no longer claims its branches.
 
 **Close is silent.** Each `Landed` already carried its own PR URLs, quality gates, and ledger.
 Repeat none of it here. `rules/chat-vocabulary.md` reserves five occasions, and a closing report
-is a sixth.
+is a sixth. One line is the exception: say so when step 3 could not return a checkout, because
+your folder is then not where you left it.
 
 **The integration critique runs before this section, and that order matters.** It compares the
 landed branches against the plan and reads its branches from `state.yml`. Archive the plan
@@ -410,6 +526,7 @@ first, and you remove both halves of that comparison.
 
 ## Notes
 
-- Never commit to the default branch; never push or open a PR without explicit approval
+- Never commit to the default branch outside `main` mode; never push or open a PR without
+  explicit approval
 - If the plan turns out to be wrong, fix the plan and re-approve. Never let implementation
   quietly diverge from the approved record

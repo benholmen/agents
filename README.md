@@ -266,9 +266,15 @@ execution time, against facts that are current then.
 
 **A milestone lands one PR per repository it touches.** Its outcome is one sentence with no
 `and`, and each of its PR titles states that outcome scoped to its repository. Two milestones
-that touch one file ship in sequence, because their branches would otherwise conflict. A
-milestone gets its own worktree per repository through `/worktree`, so no worker ever shares
-your tree.
+that touch one file ship in sequence, because their branches would otherwise conflict.
+
+**You choose where each repository's work happens.** `/implement --in <mode>` takes one of three
+modes. `container` gives each milestone a worktree of its own inside a converted repository,
+through `/worktree`. `checkout` works in your own folder on a feature branch, the way a person
+would. `main` does the same and commits straight to the default branch, with no PR. Without
+`--in`, the layout decides: a converted repository takes `container`, and a plain clone takes
+`checkout`. The roster gate names each repository's mode and the fact that chose it, and you can
+change it there.
 
 **You approve the roster before anything spawns.** `/implement` presents the milestones and
 their PR titles first, then the waves and tiers inside each one. `/implement` writes each summary

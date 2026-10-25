@@ -1,6 +1,6 @@
 ---
 name: bare-convert
-description: Set up or convert a repository into the bare-plus-worktrees layout that milestone worktrees need
+description: Set up or convert a repository into the bare-plus-worktrees layout that /implement's container mode uses
 argument-hint: "[set-up | convert | script] [url or clone path]"
 disable-model-invocation: true
 ---

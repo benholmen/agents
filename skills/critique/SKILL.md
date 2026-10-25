@@ -42,8 +42,9 @@ loop is its caller, and it calls once the last milestone has pushed.
 indirectly, so this is the one target you assemble:
 
 1. Read `<state>/plans/<slug>/state.yml`. Each `milestones.<m>.repos.<repo>` entry names one
-   branch and the base its milestone cut from. `/implement` archives that directory at Close,
-   which runs after this pass.
+   branch and the base its milestone cut from. An entry from `/implement`'s `main` mode also
+   names `head`, the commit it pushed, and its branch is the default branch. `/implement`
+   archives that directory at Close, which runs after this pass.
 2. Take each repository's container path from the plan's `**Repos**:` line. `--plan` carries the
    plan, and `/implement` always passes it.
 3. Fetch, then diff each branch against its own base:
@@ -52,11 +53,14 @@ indirectly, so this is the one target you assemble:
    git --git-dir="<container>/.git" diff <base>..<branch>
    ```
    That base is `origin/HEAD`, or the predecessor milestone's branch where the milestones stack in
-   that repository. One ref cannot serve two repositories that stack differently.
+   that repository. One ref cannot serve two repositories that stack differently. Where an entry
+   names `head`, diff `<base>..<head>` instead, because later milestones moved its branch on.
 
-The target is every one of those diffs together. **Use the bare repository, never a worktree.**
-An earlier milestone's teardown removed the worktree of every repository the last milestone did
-not touch. A bare repository reads a branch without a checkout, so it reaches all of them.
+The target is every one of those diffs together. **Use the repository's git directory, never a
+worktree.** `<container>/.git` is the bare repository when converted and the ordinary `.git` in a
+plain clone. An earlier milestone's teardown removed the worktree of every repository the last
+milestone did not touch. A git directory reads a branch without a checkout, so it reaches all of
+them.
 
 Stop and say so where an entry is absent, or where a branch does not resolve. A partial target
 answers `Plan completeness` wrongly, and that lens is why this pass exists.
@@ -257,8 +261,9 @@ milestone it reviews already shipped its PRs. A finding against M1 cannot land o
 branch already carries an open or merged PR. Write it into whatever tree stands open, and M1's fix
 lands on another milestone's branch.
 
-Never write into the user's stable `main` worktree. `rules/agent-orchestration.md` keeps a worker
-out of the user's tree, and `pr-first-contributions` forbids a commit on the default branch. An
+Never write an integration remedy into the user's own checkout. `rules/agent-orchestration.md`
+keeps a worker out of the user's tree unless the user chose it for a milestone, and
+`pr-first-contributions` forbids an unrequested commit on the default branch. An
 accepted remedy therefore lands as a follow-up milestone, and `/implement` proposes one.
 
 ### The six criteria
