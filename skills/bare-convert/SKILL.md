@@ -201,6 +201,7 @@ responsibilities. Read it there, and copy none of it here. Then ask the reposito
 
 ```bash
 git -C "<container>/main" cat-file -e HEAD:scripts/wt-provision.sh   # committed already?
+test -x "<container>/provision-worktree.sh"                          # kept private already?
 git -C "<container>/main" status --porcelain --ignored               # machine-local and derived
 test -f "<container>/main/docker-compose.yml"                        # a stack to isolate
 ```
@@ -250,11 +251,16 @@ bash -n "<container>/main/scripts/wt-provision.sh"
 checkout, so a script outside `HEAD` reaches none of them. `rules/pr-first-contributions.md` owns
 how that commit lands. This skill writes the file and stops.
 
+**A user who keeps the script private moves it to `<container>/provision-worktree.sh`.** No
+checkout holds that path, so nothing can commit it, and `/worktree provision` falls back to it
+when the worktree carries no committed script.
+
 ## Then hand over
 
-The container is ready once `HEAD` carries its provisioning script. `/worktree cut` takes it from
-here, and it derives the container path itself from any worktree inside it.
+The container is ready once `HEAD` carries its provisioning script, or once
+`<container>/provision-worktree.sh` exists and is executable. `/worktree cut` takes it from here,
+and it derives the container path itself from any worktree inside it.
 
-**Say so plainly where `HEAD` carries no script yet.** `/worktree cut` provisions every tree it
-creates, and it stops on an absent script. A hand-over that calls the container ready sends the
-user straight into that stop.
+**Say so plainly where neither exists yet.** `/worktree cut` provisions every tree it creates, and
+it stops on an absent script. A hand-over that calls the container ready sends the user straight
+into that stop.
