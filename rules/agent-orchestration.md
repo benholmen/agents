@@ -184,6 +184,21 @@ project name.
 **Archive rather than delete.** Move a finished plan's directory into `archive/` whole. It stays
 readable and searchable, and it no longer claims its branches.
 
+**Show the user a state file in the desktop app's file pane.** The pane opens only the session's
+own folders and the folders the app granted it. `permissions.additionalDirectories` lets the tools
+reach the state directory, but the pane ignores that setting, and it resolves a symlink to its
+target before it checks. Grant the folder before the first file you show in a session:
+
+```
+mcp__ccd_directory__request_directory(path="~/.agents/work")
+mcp__ccd_view__show_pane(pane="file", path="<the file, absolute>")
+```
+
+Grant once per session, and load either tool with ToolSearch where it is deferred. In auto mode
+the app grants a folder the user already trusts without asking, and the state directory is one,
+so the grant costs no prompt. Where the host has neither tool, as the CLI and Codex do not, give
+the path instead. Give it too when `show_pane` reports that the session is not open in a window.
+
 ## One worktree per milestone
 
 A worker never shares a working tree with the user unless the user chose that. `/implement`

@@ -88,7 +88,10 @@ links into another checkout, `~/.claude/backups/`, and the run state in `~/.agen
 **Let the skills reach the state directory.** Plans, task specs, and critique inputs live under
 `~/.agents/work`, which sits outside every project. Workers read them there, and the orchestrator
 writes them. Add its absolute path to `permissions.additionalDirectories` in
-`~/.claude/settings.json`, or an access outside the project can ask first:
+`~/.claude/settings.json`, or an access outside the project can ask first. The desktop app's file
+pane ignores that setting, so `/plan` and `/research` also grant the folder to their session before
+they open a plan or a research file there. In auto mode that grant asks nothing once you trust the
+folder:
 
 ```json
 { "permissions": { "additionalDirectories": ["/Users/<you>/.agents/work"] } }

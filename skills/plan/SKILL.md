@@ -261,6 +261,9 @@ Rules the rest of the workflow depends on:
 Optionally run `/critique <the plan file>` first, with the gate A `Critique:` roster, and fold in
 what survives.
 
+Open the plan in the file pane first, per `rules/agent-orchestration.md`'s **Show the user a state
+file**, so the user reads the whole plan beside the gate. Open it again after each revision.
+
 Present the design — the slices, their file scopes, and any constraint that ties two together:
 
 **Approve — `plan/<slug>`**

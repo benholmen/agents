@@ -143,7 +143,8 @@ live. Group by repo when more than one is in scope.
 ## Step 5 — Report
 
 Report the action, the location, and the decision needed. Do not report the findings — the user
-reads the file.
+reads the file. Open it in the file pane as you report, per `rules/agent-orchestration.md`'s
+**Show the user a state file**. A `/research` that `/plan` called wrote no file, so it opens none.
 
 ```
 Researched <topic> — <N> areas, <N> workers.
