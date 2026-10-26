@@ -138,9 +138,10 @@ ledger. The host also keeps every subagent's transcript.
 ## Headless critics on other runtimes
 
 `/critique` uses more than one model, because each model misses different defects. Its default
-roster is one Claude critic and one Codex critic. A critic on the host is a `critique-worker`
-subagent with its own `model`. A critic on another runtime runs
-as a headless command, with a read-only sandbox and structured output.
+roster is one Claude critic and one Codex critic, each on its vendor's recommended model, at an
+effort sized to the target. Its ledger names the model and effort each critic actually ran. A
+critic on the host is a `critique-worker` subagent with its own `model`. A critic on another
+runtime runs as a headless command, with a read-only sandbox and structured output.
 `references/runtime-codex.md` carries the Codex command. `references/runtime-claude.md` carries
 the Claude command, for a run that Codex hosts.
 

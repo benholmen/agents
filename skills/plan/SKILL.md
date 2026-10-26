@@ -45,10 +45,11 @@ write no second copy. `git rev-parse --show-toplevel` is the wrong command here:
 `<container>/main` in a converted repository, and `/worktree cut` then refuses the container as a
 plain clone.
 
-**Critique roster:** `Critique:` defaults to `/critique`'s default roster, one Claude critic at
-the session's model and one Codex critic. Where `codex` is absent, it falls back to the Claude
-critic alone, and the gate says so. The user may change it to any roster `/critique` step 2
-accepts. Write it to the plan's `### References`.
+**Critique roster:** `Critique:` defaults to `/critique`'s default roster, `claude, codex`: one
+critic per runtime, each on its vendor's recommended model. Where `codex` is absent, it falls back
+to the Claude critic alone, and the gate says so. The user may change it to any roster `/critique`
+step 2 accepts. Write it to the plan's `### References` as chosen, unresolved: `/implement`
+resolves the models when it starts, and each critique sizes its own effort to its target.
 
 **Target repos:** infer, and show your evidence for each. Draw on the current repo and on the
 repos a research file's target list names. Draw on repos implied by `file:line` references in
@@ -71,7 +72,7 @@ low across twenty runs.
 ```
 Before I investigate — confirm or adjust:
 
-  Critique:     claude:<model>, codex   (one critic per runtime; change it)
+  Critique:     claude, codex   (each vendor's recommended model; effort sized per target)
 
   Repos in scope:
     <repo>  ─ <evidence>                    <N> commits behind <default>
@@ -204,7 +205,7 @@ One line per repo when more than one is in scope. The path is the container gate
 
 ### References
 - Research absorbed from: <the research file, if any — now in archive/>
-- Critique roster: <one entry per critic, such as claude:opus, codex>
+- Critique roster: <the entries as chosen, such as claude, codex>
 ```
 
 The plan leads and the evidence follows. One `**Repos**:` line carries the container path
@@ -259,7 +260,8 @@ Rules the rest of the workflow depends on:
 ## Gate E — Approval and fork
 
 Optionally run `/critique <the plan file>` first, with the gate A `Critique:` roster, and fold in
-what survives.
+what survives. `/critique` sizes its effort from its target table, so an ordinary plan runs at
+`high`.
 
 Open the plan in the file pane first, per `rules/agent-orchestration.md`'s **Show the user a state
 file**, so the user reads the whole plan beside the gate. Open it again after each revision.

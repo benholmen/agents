@@ -167,7 +167,8 @@ Skip anything the `/plan` fork already confirmed — do not re-ask what the user
      Workspace:  agents   checkout   ~/repos/agents, one feature branch per milestone
                           plain clone, not yet converted
                           keep yourself and other sessions off it until the run closes
-     Critique per milestone: <roster> — from the plan.
+     Critique per milestone: claude:opus, codex:<model> — from the plan, resolved now
+                             M1 medium (one rule file), M2 high (two skills rewritten)
    ```
 
    Adjust any milestone boundary, model, effort, grouping, or workspace, or approve as proposed.
@@ -187,11 +188,16 @@ Skip anything the `/plan` fork already confirmed — do not re-ask what the user
    can change any repository's mode here. Add the shared-folder line wherever a repository runs
    in `checkout` or `main`. For `main`, say that commits land on the default branch with no PR.
 
-   **The critique line comes from the plan.** `/plan` records it under `### References`, and
-   `--critique` overrides it. Restate it in this gate as a line the user can change, and ask
-   nothing else. With no roster in the plan or `--critique`, use `/critique`'s default
-   roster: one Claude critic and one Codex critic. One run holds one roster, or nobody can compare
-   its milestone findings.
+   **The critique line comes from the plan, resolved here.** `/plan` records the roster under
+   `### References`, and `--critique` overrides it. With neither, use `/critique`'s default
+   roster: one Claude critic and one Codex critic. Resolve each entry's model now, per
+   `/critique` step 2, and show the resolved models. One run holds one set of models, or nobody can
+   compare its milestone findings.
+
+   **Size each milestone's critique effort from `/critique`'s target table,** and give the reason
+   beside it, the way a task's summary argues for its tier. A one-file config milestone gets
+   `medium`, an ordinary one `high`, and one that touches auth or a public contract `xhigh`. The
+   user can change either line here, and the gate asks nothing else about critique.
 
    **Disclose a host that cannot deny git writes.** On Claude, `implement-worker`'s hook denies
    them, so the roster carries no extra line. On Codex, `rules/agent-orchestration.md` says no
@@ -202,7 +208,7 @@ Skip anything the `/plan` fork already confirmed — do not re-ask what the user
 
    ```yaml
    plan: <slug>
-   critique: [<roster entry>, ...]
+   critique: [claude:opus, codex:<model>]
    workspace:
      <repo>:
        mode: checkout
@@ -212,6 +218,7 @@ Skip anything the `/plan` fork already confirmed — do not re-ask what the user
        outcome: <one sentence>
        after: []
        status: pending
+       critique_effort: high
        repos:
          <repo>:
            branch: <type>/<slug>-m1
@@ -352,7 +359,8 @@ The waves inside one milestone still run their tasks concurrently — that is st
 4. **Critique this milestone's diff, once per repository it touches.** Name the base explicitly,
    and pass the plan:
    ```
-   /critique --base <that repository's effective base> --plan <the plan file>
+   /critique --base <that repository's effective base> --plan <the plan file> \
+             --critique <each critique entry>@<this milestone's critique_effort>
    ```
    A repository's effective base is the ref step 1 cut from there. That is `origin/HEAD`, or the
    predecessor milestone's branch where those milestones stack. In `main` mode it is the commit
@@ -365,7 +373,7 @@ The waves inside one milestone still run their tasks concurrently — that is st
    Without `--base`, `/critique` falls back to the default branch and reviews the predecessor's
    diff as this milestone's. It then re-raises findings the user already settled.
 
-   Every invocation uses the critique roster the gate approved.
+   Every invocation uses the models the gate resolved, at this milestone's `critique_effort`.
 5. **Apply the filter and present what survives.** `/critique` owns the filter, the ledger, and
    the presentation of a finding. Point at it and add nothing. Each repository's invocation
    returns its own ledger, so present them grouped by repository.
@@ -403,11 +411,12 @@ The waves inside one milestone still run their tasks concurrently — that is st
 8. **Run the integration critique, once the last milestone has pushed.** This is a step, not an
    option. Skip it on every earlier milestone.
    ```
-   /critique --integration <slug> --plan <the plan file>
+   /critique --integration <slug> --plan <the plan file> --critique <each critique entry>@xhigh
    ```
-   It runs the four integration lenses with the same critique roster. One of them is the
-   reason this step exists: did every slice the plan declared land in some milestone? A
-   per-milestone critique sees one milestone's diff, so it cannot answer that.
+   It runs the four integration lenses with the same models, always at `xhigh`, because it
+   reads every milestone together. One lens is the reason this step exists: did every slice the
+   plan declared land in some milestone? A per-milestone critique sees one milestone's diff, so
+   it cannot answer that.
 
    Every milestone pushed its branch, so the diffs live on the remote. `/critique` step 1 states
    how it resolves them. Pass the slug and the plan, and add nothing to that procedure.
@@ -434,8 +443,8 @@ The waves inside one milestone still run their tasks concurrently — that is st
      <repo>   pushed to <default>   <N> commits   <base>..<head>
 
      Quality gates: <results>
-     Critique:      <N> findings, <M> presented, <models>
-     Integration:   <N> findings, <M> presented, <models>
+     Critique:      <N> findings, <M> presented, <model> · <effort> per critic, as it ran
+     Integration:   <N> findings, <M> presented, <model> · <effort> per critic, as it ran
    ```
 
    Then the ledger, in the shape `/critique` defines. `Landed` carries no footer, because the

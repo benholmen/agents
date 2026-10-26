@@ -191,7 +191,8 @@ The skills spawn four workers, each defined in `agents/` and installed to `~/.cl
 | [`implement-worker`](agents/implement-worker.md) | editing | `Read`, `Grep`, `Glob`, `Edit`, `Write`, `Bash`, and a git-write hook | `/implement` |
 
 Each one runs in the background, takes its model and effort from the call, and sets `maxTurns`
-as its bound. Each description names the skill that spawns it, so Claude does not delegate
+as its bound. A critic and a refuter fall back to their definition's `opus` and effort when a call
+names neither. Each description names the skill that spawns it, so Claude does not delegate
 unrelated work to it. The definition carries what every worker of its class shares, and the brief
 carries the one job.
 
@@ -309,11 +310,23 @@ worker with your decision, and it keeps everything it already read.
 Claude model runs as a `critique-worker` subagent, and Codex runs headless. The default roster is
 one of each, because two runtimes miss more different defects than two models of one runtime.
 A standalone run asks you for the roster and recommends that default, and `/implement` supplies
-the plan's. Each critic tries to break the target
-rather than survey it. Cross-model agreement is evidence that a defect is real, because two
-models rarely invent one defect. One model gives no such evidence, so a refutation pass takes its
-place and drops what it refutes. Agreement raises confidence, and it drops nothing. Every merged
-finding reaches the filter, whether one critic found it or every critic did.
+the plan's.
+
+**Each critic runs its vendor's recommended model, at an effort sized to the target.** A bare
+`claude` resolves to `opus`, an alias that follows the newest Opus. A bare `codex` resolves to the
+model Codex lists first in its own model cache. New releases therefore arrive with no edit here.
+Effort is `medium` for a small, contained change, `high` for an ordinary diff or plan, and `xhigh`
+for contracts, security-sensitive code, wide diffs, and the integration pass. A small target
+lowers the effort, never the model, because the newest model at a lower effort often matches an
+older one at a higher effort. `/implement` resolves the models once per run, so every milestone's
+findings come from the same models. Every ledger names the model and effort each critic actually
+ran, read from that critic's own record.
+
+Each critic tries to break the target rather than survey it. Cross-model agreement is evidence that
+a defect is real, because two models rarely invent one defect. One model gives no such evidence, so
+a refutation pass takes its place and drops what it refutes. Agreement raises confidence, and it
+drops nothing. Every merged finding reaches the filter, whether one critic found it or every critic
+did.
 
 **A filter decides which findings reach you.** `/critique` accepts a finding by default. What
 acceptance does then depends on who called. A milestone critique inside `/implement` applies the
