@@ -235,15 +235,15 @@ emits nothing and looks finished.
 inherits `auto`, `acceptEdits`, or `bypassPermissions` from the session, whatever its definition
 says. A worker that needs approval surfaces its prompt in your session and names itself.
 
-**Gates carry evidence for what they inferred.** A confirmation justifies the judgments it could
-get wrong: why these repos, why these investigation areas, why this is out of scope. A bad guess
-is then visible rather than buried. A gate prints a looked-up fact without argument; a repo list
-inferred from file references needs one. A gate's opening message carries a reserved heading and
-fences its block, per [chat-vocabulary](rules/chat-vocabulary.md). `Approve` marks a proposal,
-and `Deciding` marks a question you cannot answer yourself.
+**Gates carry evidence for what they inferred.** A confirmation justifies the judgments it could get
+wrong: why these repos, why these investigation areas, why this is out of scope. A bad guess is then
+visible rather than buried. A gate prints a looked-up fact without argument; a repo list inferred
+from file references needs one. A gate's opening message carries a reserved heading and writes its
+block as Markdown, per [chat-vocabulary](rules/chat-vocabulary.md). `Approve` marks a proposal, and
+`Deciding` marks a question you cannot answer yourself.
 
 **`/plan` grills you.** Gate A shows one changeable line, `Critique:`, so no later question asks
-for a roster. One question per message, never two. Each one carries a fenced context block, a
+for a roster. One question per message, never two. Each one carries a context list, a
 mandatory recommendation, and the `⏸` footer. Only the first question carries the `Deciding`
 heading, so a long grilling does not become a column of headings. The question whose answer
 changes the most other answers comes first. `/plan` looks up anything the filesystem or a tool

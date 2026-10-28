@@ -146,22 +146,25 @@ findings comparable. `max` runs only when the user names it, as `@max`.
 other. A Codex model whose `supported_reasoning_levels` lacks that effort gets the highest level it
 lists below it.
 
-**Deciding — the critique roster**
+> **Deciding — the critique roster**
+>
+> - **Found:** claude (host) resolves to `opus`, the newest Opus; codex resolves to `<model>`, first
+>   in Codex's model list (or: codex absent)
+> - **Effort:** `<level>`, because <the table row that chose it>
+> - **Decision:** each model misses different defects, and only you know the budget
+> - **Default, `claude:opus@<level>, codex:<model>@<level>`:** one critic per runtime, and
+>   cross-model agreement
+> - **One, `claude:opus@<level>` alone:** cheaper, and a refutation pass stands in for agreement
+> - **More, a second Claude model:** more coverage, at one more critic's cost
+>
+> Which models should critique this? I recommend `claude:opus@<level>, codex:<model>@<level>`,
+> because one critic per runtime finds the widest spread of defects for two critics' cost.
+>
+> ⏸ waiting on you: name the models for this critique
 
-```
-found:        claude (host) → opus, the newest Opus
-              codex → <model>, first in Codex's model list         (or: codex absent)
-effort:       <level>, because <the table row that chose it>
-decision:     each model misses different defects, and only you know the budget
-default       claude:opus@<level>, codex:<model>@<level>: one critic per runtime, and agreement
-one           claude:opus@<level> alone: cheaper, and a refutation pass stands in for agreement
-more          a second Claude model: more coverage, at one more critic's cost
-```
-
-Which models should critique this? I recommend `claude:opus@<level>, codex:<model>@<level>`,
-because one critic per runtime finds the widest spread of defects for two critics' cost.
-
-⏸ waiting on you: name the models for this critique
+This `Deciding` offers options, so where the host has an interactive question tool, ask through
+it, per `rules/chat-vocabulary.md`'s **Which surface carries a question**. The shape above is the
+fallback in prose.
 
 Each model misses different defects, which is the point. Independent critics find more defects
 than one critic that you run repeatedly. A Claude model beside a Codex model is more independent
@@ -372,29 +375,23 @@ Each one is a prohibition. Never escalate a finding on one of these grounds.
 Report one line per decision, ranked by criticality. Criticality means a wrong result outranks a
 plausible failure, which outranks a nit.
 
-```
-Ledger — <target> (<model> · <effort>, <model> · <effort>)
-
-  bug    `src/token.php:88`   refresh drops the retry budget
-         fixed: threaded the budget through the call
-         declined: reset it in the caller — the caller cannot see the ceiling
-
-  risk   `src/auth.php:12`    the 401 path retries without a bound
-         fixed: bounded the loop
-
-  nit    `src/auth.php:40`    `$tok` shadows the outer binding
-         fixed: renamed it to `$refreshed`
-```
+> **Ledger — <target>** (<model> · <effort>, <model> · <effort>)
+>
+> | Severity | Location | Finding | Action |
+> |---|---|---|---|
+> | bug | `src/token.php:88` | refresh drops the retry budget | **Fixed:** threaded the budget through the call. **Declined:** reset it in the caller, which cannot see the ceiling |
+> | risk | `src/auth.php:12` | the 401 path retries without a bound | **Fixed:** bounded the loop |
+> | nit | `src/auth.php:40` | `$tok` shadows the outer binding | **Fixed:** renamed it to `$refreshed` |
 
 **The header names each critic's model and effort as it ran,** from step 5's records, never
 an alias or a bare runtime. A reader then knows exactly which models found what, and two
 ledgers compare only when their headers match.
 
 Carry the declined alternative wherever more than one fix existed, and give its reason in one
-clause. Omit that line where only one fix existed.
+clause, in the action cell. Omit it where only one fix existed.
 
-The `fixed:` line reads `remedy:` wherever the run applied nothing. That covers a standalone
-critique and every `--integration` pass.
+The action reads **Remedy:** rather than **Fixed:** wherever the run applied nothing. That covers a
+standalone critique and every `--integration` pass.
 
 **The ledger is the only surface where a remedy choice stays correctable.** C6 escalates a
 genuine tie alone, so every other choice between two fixes reaches the user here.
@@ -413,18 +410,16 @@ C1 through C5 carry a proposal you already formed, so each takes `Approve`. C6 c
 you cannot rank, so it takes `Deciding`. A C6 recommendation names the ground it rests on,
 because the stated grounds do not rank the two fixes.
 
-```
-**Approve — `src/token.php:88`**
-
-  found:      refresh drops the retry budget — C1, the ceiling is unverifiable
-  decision:   the fix assumes a ceiling of 3, and no code in the repository states one
-  fix it      threads the budget through the call, on an assumed ceiling
-  drop it     three consecutive 401s retry forever
-
-Fix it as proposed, or drop it? I recommend fixing it.
-```
-
-⏸ waiting on you: fix `src/token.php:88` as proposed, or drop the finding
+> **Approve — `src/token.php:88`**
+>
+> - **Found:** refresh drops the retry budget — C1, the ceiling is unverifiable
+> - **Decision:** the fix assumes a ceiling of 3, and no code in the repository states one
+> - **Fix it:** threads the budget through the call, on an assumed ceiling
+> - **Drop it:** three consecutive 401s retry forever
+>
+> Fix it as proposed, or drop it? I recommend fixing it.
+>
+> ⏸ waiting on you: fix `src/token.php:88` as proposed, or drop the finding
 
 Every finding carries a severity — `bug` (wrong behavior), `risk` (plausible failure), `nit`
 (style, naming, cleanup). Severity ranks the ledger, so never drop it from a line.
@@ -438,8 +433,7 @@ in place. It moves to `archive/` with its plan.
 If nothing survives, there is no ledger and no decision to request. Report the action alone —
 one line, no findings block, no closing question:
 
-```
-Critique of <target> (<model> · <effort> per critic) — nothing survived. 4 raised, all refuted.
-```
+> Critique of <target> (<model> · <effort> per critic): nothing survived. 4 findings raised, all
+> refuted.
 
 A clean critique is a real outcome, not a failure to try hard enough.

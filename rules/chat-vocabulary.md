@@ -35,7 +35,8 @@ the user to read every turn again.
   is one such message, and it carries no heading.
 - **Global parts:** the six headings and the footer hold in every skill. The cadence above holds
   in `/implement` alone.
-- **Fencing:** Fence every block that sits under a reserved heading.
+- **Formatting:** Write every block under a reserved heading as Markdown: bold labels, tables,
+  and lists. Fence only what the user would copy and run.
 - **Recommendation:** Every question that offers options carries one. An `Approve` proposal is its
   own; every other such question states one explicitly. A question offering none carries none.
 - **Exceptions:** A direct reply to the user's own question needs no heading.
@@ -112,14 +113,24 @@ no arguments asks which plan to run. That question opens a gate rather than stan
 report, a narration, and a direct answer to the user's own question carry none. None of the three
 waits, and waiting is the whole test. Whether a message carries a heading decides nothing here.
 
-## Fence every blocking block
+## Write a gate as Markdown
 
-Fence every block that sits under a reserved heading. Unfenced, the roster gate reached a median
-of 286 columns and the finding block 327. At that width the terminal wrapped both, and neither
-read as a table any more. Real runs fenced the roster gate 5 times out of 13, and the
-per-finding block 13 of 25.
+The host renders Markdown, so a gate is Markdown, never a code fence. A fence renders as a
+fixed-width box, and every value longer than the box wraps and breaks the alignment it was meant to
+keep. Three shapes cover every gate:
 
-A question that offers nothing to rank has no block, so it fences nothing.
+- **A labelled fact** is a bold label and its value: `**Base:** origin/HEAD`.
+- **A set of like things** is a table, one row each: repositories, milestones, tasks, findings.
+- **Options** are a list, each with what it costs.
+
+Fence only what the user would copy and run: a command, or a snippet of code. A gate that needs
+neither carries no fence.
+
+**Keep a table narrow.** Three to five columns, short cells, and the long explanation in a line
+under the table. A table with a paragraph in one cell reads worse than the list it replaced.
+
+A plain terminal shows a table's pipes. That still reads in order, which a wrapped fence does
+not, so the same Markdown serves both.
 
 ## The taken glyphs stay taken
 
@@ -132,7 +143,6 @@ Each glyph below already carries one meaning. Never give one of them a second.
 ⚠   a task escalated
 ⊘   a task blocked behind another
 ☐   an open work item
-─   separates a repository from its evidence
 ·   separates a model from its effort
 ⏸   the footer, and nothing else
 ```
@@ -148,7 +158,7 @@ restating it.
 1. The reserved heading, on the gate's opening message only: `Deciding` for a question you cannot
    answer yourself, `Approve` for a proposal. Each follow-up question inside that open gate carries
    no heading.
-2. A fenced context block, carrying the three things below.
+2. A context list, carrying the three things below.
 3. One short question, and a recommendation. The recommendation is mandatory. An `Approve`
    proposal is its own, so it needs no separate line.
 4. The footer, as the last line of a prose question. A question the tool delivers needs
@@ -159,14 +169,12 @@ cost and nothing to recommend. The heading, the question, and the footer are the
 The first question of `/plan` and `/research` is that shape. `/implement`'s lists the active
 plans, so it offers options and takes the full shape.
 
-The context block carries what you found, why the user must choose, and the cost of each option:
+The context list carries what you found, why the user must choose, and the cost of each option:
 
-```
-found:      <what you found, and where>
-decision:   <why this needs the user, rather than a lookup you can run>
-<option A>  <what it costs, and what it forecloses>
-<option B>  <what it costs, and what it forecloses>
-```
+- **Found:** what you found, and where
+- **Decision:** why this needs the user, rather than a lookup you can run
+- **Option A:** what it costs, and what it forecloses
+- **Option B:** what it costs, and what it forecloses
 
 Ask one question per message. Never batch two, because the user answers the first and the second
 one disappears.
@@ -195,7 +203,7 @@ Map the shape onto the tool:
 
 ```
 part 1, the heading          the prose above the call
-part 2, the context block    the prose above the call
+part 2, the context list     the prose above the call
 each option and its cost     that option's description
 part 3, the question         the question field
 the recommendation           the first option, labelled (Recommended)
@@ -219,7 +227,7 @@ the situation into the options.
 | A blocking message with no footer | Its absence means nothing is outstanding, so the user reads an all-clear |
 | `Approve` on a choice you cannot rank | The user sanctions a proposal nobody made, and the real question stays unasked |
 | `Deciding` on a proposal you already formed | The user ranks options you invented to fill the shape |
-| An unfenced roster or finding block | Real runs reached 286 and 327 columns, and neither block read as a table |
+| A gate inside a code fence | The fence renders fixed-width, and every long value wraps and breaks the alignment |
 | A question that offers options and no recommendation | The user does the ranking work you were able to do first |
 | Two questions in one message | The user answers the first, and the second one disappears |
 | A bold sentinel in place of the footer | Bold marks emphasis everywhere else, so it marks nothing here |

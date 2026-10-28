@@ -31,7 +31,7 @@ With no arguments:
 > ⏸ waiting on you: name what to plan
 
 That question opens a `Deciding` gate, so it carries the heading and the footer. It offers nothing
-to rank, so it carries no context block and no recommendation. `rules/chat-vocabulary.md` states
+to rank, so it carries no context list and no recommendation. `rules/chat-vocabulary.md` states
 all three.
 
 ## Gate A — Scope and investigation
@@ -67,31 +67,34 @@ gaps, and do not re-derive what you already know.
 tells the user what the grilling costs. A count of questions does not, and the count ran 1.43×
 low across twenty runs.
 
-**Approve — /plan scope**
-
-```
-Before I investigate — confirm or adjust:
-
-  Critique:     claude, codex   (each vendor's recommended model; effort sized per target)
-
-  Repos in scope:
-    <repo>  ─ <evidence>                    <N> commits behind <default>
-    <repo>  ─ <evidence>                    <N> commits behind <default>
-
-  Not included: <repo> (<why>)
-
-  I plan to investigate (<N> parallel workers):
-    1. <specific question>                  <model> · <effort>
-    2. <specific question>                  <model> · <effort>
-
-  Decisions I expect to put to you:
-    1. <the decision, in a phrase>
-    2. <the decision, in a phrase>
-
-Accept this scope, or tell me which repo or question to add or cut.
-```
-
-⏸ waiting on you: accept the `/plan` scope, or name what to change
+> **Approve — /plan scope**
+>
+> Before I investigate, confirm or adjust.
+>
+> **Critique:** claude, codex (each vendor's recommended model; effort sized per target)
+>
+> | Repo | Why it's in scope | Behind `<default>` |
+> |---|---|---|
+> | `<repo>` | <evidence> | <N> commits |
+> | `<repo>` | <evidence> | <N> commits |
+>
+> **Not included:** `<repo>` (<why>)
+>
+> **I plan to investigate**, with <N> parallel workers:
+>
+> | # | Question | Model · effort |
+> |---|---|---|
+> | 1 | <specific question> | <model> · <effort> |
+> | 2 | <specific question> | <model> · <effort> |
+>
+> **Decisions I expect to put to you:**
+>
+> 1. <the decision, in a phrase>
+> 2. <the decision, in a phrase>
+>
+> Accept this scope, or tell me which repo or question to add or cut.
+>
+> ⏸ waiting on you: accept the `/plan` scope, or name what to change
 
 ## Research phase
 
@@ -268,21 +271,21 @@ file**, so the user reads the whole plan beside the gate. Open it again after ea
 
 Present the design — the slices, their file scopes, and any constraint that ties two together:
 
-**Approve — `plan/<slug>`**
-
-```
-Plan: <state>/plans/<slug>/plan.md
-
-  <name>            rules/*.md
-  <name>            skills/*.md        same-worker as <name>
-  <name>            README.md          after everything above
-
-  Not included: <thing> (<why>)
-
-Approve the plan?
-```
-
-⏸ waiting on you: approve `plan/<slug>`, or name the slice to change
+> **Approve — `plan/<slug>`**
+>
+> **Plan:** `<state>/plans/<slug>/plan.md`
+>
+> | Slice | Files | Constraint |
+> |---|---|---|
+> | <name> | `rules/*.md` | |
+> | <name> | `skills/*.md` | same-worker as <name> |
+> | <name> | `README.md` | after everything above |
+>
+> **Not included:** <thing> (<why>)
+>
+> Approve the plan?
+>
+> ⏸ waiting on you: approve `plan/<slug>`, or name the slice to change
 
 **No milestones, no waves, no worker count, no models here.** `/implement` composes and
 schedules those at decomposition, against facts that are current then, and gates them
@@ -293,18 +296,20 @@ explicit approval.**
 
 Once the user approves:
 
-**Deciding — what happens to `plan/<slug>`**
+> **Deciding — what happens to `plan/<slug>`**
+>
+> Plan approved. What next?
+>
+> 1. **Implement now:** I'll start `/implement`; you'll next see its roster gate.
+> 2. **Leave active:** the plan stays in `<state>/plans/`; run `/implement <slug>` whenever.
+>
+> I recommend <one of the two>, because <the ground>.
+>
+> ⏸ waiting on you: pick one of the two for `plan/<slug>`
 
-```
-Plan approved. What next?
-
-  1. Implement now   — I'll start /implement; you'll next see its roster gate
-  2. Leave active    — the plan stays in <state>/plans/; run /implement <slug> whenever
-```
-
-I recommend <one of the two>, because <the ground>.
-
-⏸ waiting on you: pick one of the two for `plan/<slug>`
+This `Deciding` offers options, so where the host has an interactive question tool, ask through
+it, per `rules/chat-vocabulary.md`'s **Which surface carries a question**. The shape above is the
+fallback in prose.
 
 `rules/chat-vocabulary.md` makes that line mandatory. This `Deciding` presents two options you
 did not rank, so it never counts as its own recommendation.

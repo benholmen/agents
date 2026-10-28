@@ -28,7 +28,7 @@ If the user invokes it with no arguments:
 > ⏸ waiting on you: name a question or an area of the codebase
 
 That question opens a `Deciding` gate, so it carries the heading and the footer. It offers nothing
-to rank, so it carries no context block and no recommendation. `rules/chat-vocabulary.md` states
+to rank, so it carries no context list and no recommendation. `rules/chat-vocabulary.md` states
 all three.
 
 ## Step 1 — Establish scope, and confirm it
@@ -44,22 +44,24 @@ research file covers this, read it and extend it. Do not duplicate it.
 
 Then present the gate, in the shape `rules/chat-vocabulary.md` defines:
 
-**Approve — /research scope**
-
-```
-  Repos in scope:
-    <repo>  ─ <evidence: current repo / N code refs / named in request>
-
-  Not included: <area> (<why>)
-
-  I plan to investigate (<N> parallel workers):
-    1. <specific question>                          <model> · <effort>
-    2. <specific question>                          <model> · <effort>
-```
-
-Accept this scope, or tell me which area to add or cut.
-
-⏸ waiting on you: accept the `/research` scope, or name what to change
+> **Approve — /research scope**
+>
+> | Repo | Why it's in scope |
+> |---|---|
+> | `<repo>` | <evidence: current repo / N code refs / named in request> |
+>
+> **Not included:** <area> (<why>)
+>
+> **I plan to investigate**, with <N> parallel workers:
+>
+> | # | Question | Model · effort |
+> |---|---|---|
+> | 1 | <specific question> | <model> · <effort> |
+> | 2 | <specific question> | <model> · <effort> |
+>
+> Accept this scope, or tell me which area to add or cut.
+>
+> ⏸ waiting on you: accept the `/research` scope, or name what to change
 
 Scale the investigation to the question. A narrow lookup deserves one worker; mapping a
 subsystem deserves several. State what you are *not* looking at, and why. A wrong omission is
@@ -146,13 +148,11 @@ Report the action, the location, and the decision needed. Do not report the find
 reads the file. Open it in the file pane as you report, per `rules/agent-orchestration.md`'s
 **Show the user a state file**. A `/research` that `/plan` called wrote no file, so it opens none.
 
-```
-Researched <topic> — <N> areas, <N> workers.
-
-  File: <state>/research/<slug>.md
-
-Next: /plan <the file> to plan from it, or /critique <the file> to challenge it.
-```
+> Researched <topic>: <N> areas, <N> workers.
+>
+> **File:** `<state>/research/<slug>.md`
+>
+> **Next:** `/plan <the file>` to plan from it, or `/critique <the file>` to challenge it.
 
 ## Follow-ups
 

@@ -138,42 +138,36 @@ Skip anything the `/plan` fork already confirmed — do not re-ask what the user
 5. **Gate the roster.** This is an approval stop, not an announcement. Milestones and their PR
    titles come first. Waves and tiers come second, inside the milestone that holds them.
 
-   **Approve — roster for `plan/<slug>`**
-
-   ```
-   2 milestones, 4 workers.
-
-     M1  reserve a chat vocabulary for messages that need a reply
-         agents  feat(rules): reserve a chat vocabulary for messages that need a reply
-         wave 1
-           A  rules/chat-vocabulary.md                       opus · xhigh
-              Author one rule from scratch, matching house style across six
-              existing files.
-         wave 2
-           B  skills/{research,critique,worktree}/SKILL.md   sonnet · medium
-              Three localized edits against precise line references.
-
-     M2  deliver each milestone as its own PRs
-         agents  feat(skills): deliver each milestone as its own PRs
-         after M1 — both touch README.md
-         wave 1
-           C  skills/{plan,implement}/SKILL.md               opus · xhigh
-              Rewrite two skills onto one delivery vocabulary that must not
-              drift between them.
-           D  rules/pr-first-contributions.md                sonnet · high
-              Add stacked-PR guidance to a general rule without turning it
-              into an appendix.
-
-     Workspace:  agents   checkout   ~/repos/agents, one feature branch per milestone
-                          plain clone, not yet converted
-                          keep yourself and other sessions off it until the run closes
-     Critique per milestone: claude:opus, codex:<model> — from the plan, resolved now
-                             M1 medium (one rule file), M2 high (two skills rewritten)
-   ```
-
-   Adjust any milestone boundary, model, effort, grouping, or workspace, or approve as proposed.
-
-   ⏸ waiting on you: approve the roster, or name what to change
+   > **Approve — roster for `plan/<slug>`**
+   >
+   > 2 milestones, 4 workers.
+   >
+   > **M1: reserve a chat vocabulary for messages that need a reply**
+   > PR in `agents`: `feat(rules): reserve a chat vocabulary for messages that need a reply`
+   >
+   > | Wave | Task | Files | Tier |
+   > |---|---|---|---|
+   > | 1 | **A** — author one rule from scratch, matching house style across six files | `rules/chat-vocabulary.md` | opus · xhigh |
+   > | 2 | **B** — three localized edits against precise line references | `skills/{research,critique,worktree}/SKILL.md` | sonnet · medium |
+   >
+   > **M2: deliver each milestone as its own PRs** — after M1, because both touch `README.md`
+   > PR in `agents`: `feat(skills): deliver each milestone as its own PRs`
+   >
+   > | Wave | Task | Files | Tier |
+   > |---|---|---|---|
+   > | 1 | **C** — rewrite two skills onto one delivery vocabulary that must not drift | `skills/{plan,implement}/SKILL.md` | opus · xhigh |
+   > | 1 | **D** — add stacked-PR guidance to a general rule without an appendix | `rules/pr-first-contributions.md` | sonnet · high |
+   >
+   > **Workspace:** `agents` runs in `checkout`, in `~/repos/agents`, one feature branch per
+   > milestone, because it is a plain clone, not yet converted. Keep yourself and other sessions
+   > off it until the run closes.
+   >
+   > **Critique per milestone:** `claude:opus`, `codex:<model>`, from the plan, resolved now. M1
+   > `medium` (one rule file), M2 `high` (two skills rewritten).
+   >
+   > Adjust any milestone boundary, model, effort, grouping, or workspace, or approve as proposed.
+   >
+   > ⏸ waiting on you: approve the roster, or name what to change
 
    **The summary is the justification.** One task reads "three localized edits against precise
    line references". Another reads "a rewrite of two skills onto one vocabulary". Each argues for
@@ -331,18 +325,19 @@ The waves inside one milestone still run their tasks concurrently — that is st
    **Uncommitted work in your checkout stops this milestone.** That work is yours, and a branch
    switch would carry it into the run's first commit.
 
-   **Blocked — `<checkout>` holds uncommitted work**
-
-   ```
-   found:      <the git status --porcelain lines>
-   options:    commit or stash it yourself, then resume
-               convert <repo> with /bare-convert, which carries the work into main/,
-               then run it in container
-
-   I recommend <the option>, because <the ground it rests on>.
-   ```
-
-   ⏸ waiting on you: clear `<checkout>`, or convert `<repo>`
+   > **Blocked — `<checkout>` holds uncommitted work**
+   >
+   > **Found:** <the `git status --porcelain` lines>
+   >
+   > **Options:**
+   >
+   > - Commit or stash it yourself, then resume.
+   > - Convert `<repo>` with `/bare-convert`, which carries the work into `main/`, then run it in
+   >   `container`.
+   >
+   > I recommend <the option>, because <the ground it rests on>.
+   >
+   > ⏸ waiting on you: clear `<checkout>`, or convert `<repo>`
 
    Record the tree under `milestones.<m>.repos.<repo>.worktree`: the path `/worktree` reported, or
    `<checkout>` itself. Then set the milestone's `status` to `running`.
@@ -389,16 +384,16 @@ The waves inside one milestone still run their tasks concurrently — that is st
 6. **Gate the push.** `pr-first-contributions` forbids a push without explicit approval, and this
    gate is where you ask. Re-run its staleness check first.
 
-   **Approve — push milestone `<m>`**
-
-   ```
-     <repo>   <N> commits   base <branch>   "<the PR title>"
-     <repo>   <N> commits   push to <default>, no PR
-
-     Quality gates: <results>
-   ```
-
-   ⏸ waiting on you: approve the push for milestone `<m>`
+   > **Approve — push milestone `<m>`**
+   >
+   > | Repo | Commits | Lands on | PR title |
+   > |---|---|---|---|
+   > | `<repo>` | <N> | base `<branch>` | <the PR title> |
+   > | `<repo>` | <N> | `<default>`, no PR | |
+   >
+   > **Quality gates:** <results>
+   >
+   > ⏸ waiting on you: approve the push for milestone `<m>`
 7. **Push and open one PR per repository the milestone touches.** Follow
    `pr-first-contributions`, which owns the stacked-PR base and the title spec. Update an open PR
    rather than opening a second one. Record each PR under `milestones.<m>.repos.<repo>.pr`.
@@ -425,7 +420,7 @@ The waves inside one milestone still run their tasks concurrently — that is st
    removed the worktree of every repository this milestone leaves alone.
 
    **The integration pass edits nothing, and `/critique` owns that.** Its ledger line reads
-   `remedy:` rather than `fixed:`. Every milestone it reviews already shipped its PRs, so an
+   **Remedy:** rather than **Fixed:**. Every milestone it reviews already shipped its PRs, so an
    accepted remedy lands as a follow-up milestone. Propose that milestone and let the user approve
    it. Escalate as `Blocked` where a finding invalidates a PR the run already opened.
 
@@ -433,19 +428,19 @@ The waves inside one milestone still run their tasks concurrently — that is st
    and the run speaks a sixth time.
 9. **Announce the landing.** It reports and does not block.
 
-   **Landed — `<milestone>`**
-
-   ```
-   <the milestone's outcome, in one sentence>
-
-     <repo>   <PR url>   <N> commits   base <the default branch>
-     <repo>   <PR url>   <N> commits   base <the predecessor milestone's branch>
-     <repo>   pushed to <default>   <N> commits   <base>..<head>
-
-     Quality gates: <results>
-     Critique:      <N> findings, <M> presented, <model> · <effort> per critic, as it ran
-     Integration:   <N> findings, <M> presented, <model> · <effort> per critic, as it ran
-   ```
+   > **Landed — `<milestone>`**
+   >
+   > <the milestone's outcome, in one sentence>
+   >
+   > | Repo | Result | Commits | Base |
+   > |---|---|---|---|
+   > | `<repo>` | <PR url> | <N> | `<the default branch>` |
+   > | `<repo>` | <PR url> | <N> | `<the predecessor milestone's branch>` |
+   > | `<repo>` | pushed to `<default>` | <N> | `<base>..<head>` |
+   >
+   > - **Quality gates:** <results>
+   > - **Critique:** <N> findings, <M> presented; <model> · <effort> per critic, as it ran
+   > - **Integration:** <N> findings, <M> presented; <model> · <effort> per critic, as it ran
 
    Then the ledger, in the shape `/critique` defines. `Landed` carries no footer, because the
    run continues.
@@ -482,20 +477,21 @@ an escalated report to `reports/<m>/<task>.md`, so it survives this session. The
 only place an escalation appears. Resolve every escalation before the
 milestone lands, or the run stops here.
 
-**Blocked — milestone `<m>` wave `<N>`**
-
-```
-  A  ✓ committed
-  B  ⚠ escalated — <what the worker found>
-  C  ⊘ blocked behind B
-
-The plan assumed <X>; the code actually does <Y>.
-Options: <adjust the plan / a different approach / drop the slice>
-
-I recommend <the option>, because <the ground it rests on>.
-```
-
-⏸ waiting on you: pick one option for task `B`
+> **Blocked — milestone `<m>` wave `<N>`**
+>
+> | Task | State |
+> |---|---|
+> | A | ✓ committed |
+> | B | ⚠ escalated: <what the worker found> |
+> | C | ⊘ blocked behind B |
+>
+> The plan assumed <X>; the code actually does <Y>.
+>
+> **Options:** adjust the plan, take a different approach, or drop the slice.
+>
+> I recommend <the option>, because <the ground it rests on>.
+>
+> ⏸ waiting on you: pick one option for task `B`
 
 **The recommendation is mandatory.** `rules/chat-vocabulary.md` requires one on every question, and
 a `Blocked` options list ranks nothing by itself. Name the option you would take and the ground it

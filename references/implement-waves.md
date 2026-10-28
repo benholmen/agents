@@ -125,31 +125,25 @@ goes stale immediately, and the user must ask.
 read where the run is without asking. A block that covers one wave answers that for ten minutes,
 and then the reader asks again.
 
-**Running — `<milestone>`**
+> **Running — `<milestone>`**
+>
+> | Wave | Task | State | Tier | Detail |
+> |---|---|---|---|---|
+> | 1 | A salvage artifacts | ✓ | | committed `927c3db` |
+> | 2 | B skeleton and contract | ▶ | opus · high | agent `a3f9c2` |
+> | 3 | C measurement harness | | opus · xhigh | |
+> | | D shared guest image | | opus · xhigh | |
+> | 4 | E three backends | | opus · xhigh | |
+> | 5 | F run the bakeoff | | supervised | |
+> | 6 | G decision record | | opus · high | |
+>
+> <what the plan did not anticipate, in one or two sentences>
 
-```
-  wave 1  ✓ A  salvage artifacts       committed 927c3db
-  wave 2  ▶ B  skeleton and contract   opus · high   agent a3f9c2
-  wave 3    C  measurement harness     opus · xhigh
-            D  shared guest image      opus · xhigh
-  wave 4    E  three backends          opus · xhigh
-  wave 5    F  run the bakeoff         supervised
-  wave 6    G  decision record         opus · high
-```
-
-<what the plan did not anticipate, in one or two sentences>
-
-Each row names its wave, the task letter, and a short task name. The state follows:
-
-```
-  committed   ✓ and the short SHA
-  running     ▶, the tier, and the worker's agent ID
-  pending     the tier alone
-```
-
-No row repeats a wave number. Rows after a wave's first row leave the wave column empty, as
-wave 3 does above. An escalated task takes ⚠ and a blocked one takes ⊘, per the glyphs in
-`rules/chat-vocabulary.md`.
+One row per task. The state column takes ✓ for committed, ▶ for running, ⚠ for escalated, and ⊘
+for blocked, per the glyphs in `rules/chat-vocabulary.md`, and stays empty while the task is
+pending. The detail column carries the short SHA of a committed task and the agent ID of a
+running one. No row repeats a wave number: rows after a wave's first row leave the wave cell
+empty, as wave 3 does above.
 
 Keep the paragraph to what a reader needs to orient. A wave that met the plan needs no sentence
 at all. An escalation belongs under `Blocked` instead, which `/implement` owns.
