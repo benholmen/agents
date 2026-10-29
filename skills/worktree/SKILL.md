@@ -32,6 +32,7 @@ The container is the repository's own path, at whatever depth it sits.
 <container>/                       the repository's own path
   .git/                            bare repository
   main/                            the user's stable worktree, never removed
+  provision-worktree.sh            optional: a private provisioning script, never committed
   <plan-slug>-<milestone-slug>/    a milestone worktree
   <plan-slug>-<milestone-slug>/    a second milestone worktree
 ```
@@ -145,38 +146,48 @@ rather than cutting a second one.
 Use this mode to fill a worktree that already exists. Cut mode runs it, and you can run it again
 after a lockfile changes.
 
-**Refuse a worktree that carries no provisioning script.** Test it first, because the command
-below runs the script directly:
+**Resolve the provisioning script first.** The committed script wins. A private script at the
+container root is the fallback, for a repository whose script the user keeps out of its history:
 
 ```bash
-test -x "<worktree>/scripts/wt-provision.sh"
+if [ -x "<worktree>/scripts/wt-provision.sh" ]; then
+  SCRIPT="<worktree>/scripts/wt-provision.sh"
+elif [ -x "<container>/provision-worktree.sh" ]; then
+  SCRIPT="<container>/provision-worktree.sh"
+else
+  SCRIPT=""
+fi
 ```
 
-Report that refusal to the user:
+**Refuse a worktree that resolves no script.** Report that refusal to the user:
 
 > **Blocked — `<repo>` carries no provisioning script**
 >
-> - **Found:** `<worktree>/scripts/wt-provision.sh` is missing, or it is not executable
-> - **Needed:** the script this repository commits, per **The provisioning contract** below
+> - **Found:** neither `<worktree>/scripts/wt-provision.sh` nor `<container>/provision-worktree.sh`
+>   exists and is executable
+> - **Needed:** a script that meets **The provisioning contract** below
 > - **Next:** `/bare-convert script <container>`
 > - **Kept:** `<worktree>`, so the script can land on this milestone's branch
 >
-> ⏸ waiting on you: run /bare-convert script <container>, or commit the script yourself
+> ⏸ waiting on you: run /bare-convert script <container>, or add the script yourself
 
 **Keep the worktree and the branch here.** The cleanup below undoes a script that ran and failed.
 A script that never existed leaves nothing to undo. Remove the tree, and the retry meets the same
 absence, so the run loops instead of reporting.
 
-**A milestone worktree is a checkout, so `HEAD` must carry the script.** A script left untracked
-in `<container>/main` reaches no worktree cut afterwards. `/bare-convert` states that too.
+**A milestone worktree is a checkout, so a committed script must sit on `HEAD`.** A script left
+untracked in `<container>/main` reaches no worktree cut afterwards. Keep a private script at
+`<container>/provision-worktree.sh` instead, which no checkout holds and no commit can carry.
+`/bare-convert` states both.
 
 ```bash
-"<worktree>/scripts/wt-provision.sh" "<container>/main" "<worktree>"
+"${SCRIPT}" "<container>/main" "<worktree>"
 ```
 
-**Run the script from the target worktree, not from `main`.** Pass `main` as the source argument
-only, which is the whole of its role. A milestone whose own branch updates the script must run
-the updated one. A stacked milestone inherits its predecessor's version the same way.
+**Run the committed script from the target worktree, not from `main`.** Pass `main` as the
+source argument only, which is the whole of its role. A milestone whose own branch updates the
+script must run the updated one. A stacked milestone inherits its predecessor's version the same
+way. The private script has one version, so every milestone runs it.
 
 **Clean up after a failed provision.** The worktree and the branch both exist by then, so the
 retry fails on two paths that are already taken:
@@ -197,6 +208,10 @@ worktree and the target worktree as arguments:
 ```bash
 scripts/wt-provision.sh <source-worktree> <target-worktree>
 ```
+
+A user who keeps the script out of the repository's history puts it at
+`<container>/provision-worktree.sh` instead. It takes the same arguments and owns the same
+responsibilities. Provision mode prefers the committed script when both exist.
 
 The script owns three responsibilities.
 
