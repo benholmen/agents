@@ -2,6 +2,8 @@
 name: critique-worker
 description: One adversarial critic in a /critique run. Spawned by the /critique skill only, never for other work.
 tools: Read, Grep, Glob
+model: opus
+effort: high
 permissionMode: auto
 maxTurns: 150
 background: true

@@ -113,15 +113,13 @@ fi
 
 Report that refusal to the user:
 
-**Blocked — `<container>` is not a container**
-
-```
-found:      <container>/.git is a plain clone, not a bare repository
-needed:     the bare-plus-worktrees layout, per rules/agent-orchestration.md
-next:       /bare-convert convert <container>
-```
-
-⏸ waiting on you: run /bare-convert convert <container>, or name another container
+> **Blocked — `<container>` is not a container**
+>
+> - **Found:** `<container>/.git` is a plain clone, not a bare repository
+> - **Needed:** the bare-plus-worktrees layout, per `rules/agent-orchestration.md`
+> - **Next:** `/bare-convert convert <container>`
+>
+> ⏸ waiting on you: run /bare-convert convert <container>, or name another container
 
 Test the branch and the recorded worktree path before you cut. `rules/agent-orchestration.md`
 carries both tests, the three branch cases, and the escalation each one demands. Follow it rather
@@ -163,17 +161,15 @@ fi
 
 **Refuse a worktree that resolves no script.** Report that refusal to the user:
 
-**Blocked — `<repo>` carries no provisioning script**
-
-```
-found:      neither <worktree>/scripts/wt-provision.sh nor <container>/provision-worktree.sh
-            exists and is executable
-needed:     a script that meets ## The provisioning contract below
-next:       /bare-convert script <container>
-kept:       <worktree>, so the script can land on this milestone's branch
-```
-
-⏸ waiting on you: run /bare-convert script <container>, or add the script yourself
+> **Blocked — `<repo>` carries no provisioning script**
+>
+> - **Found:** neither `<worktree>/scripts/wt-provision.sh` nor `<container>/provision-worktree.sh`
+>   exists and is executable
+> - **Needed:** a script that meets **The provisioning contract** below
+> - **Next:** `/bare-convert script <container>`
+> - **Kept:** `<worktree>`, so the script can land on this milestone's branch
+>
+> ⏸ waiting on you: run /bare-convert script <container>, or add the script yourself
 
 **Keep the worktree and the branch here.** The cleanup below undoes a script that ran and failed.
 A script that never existed leaves nothing to undo. Remove the tree, and the retry meets the same

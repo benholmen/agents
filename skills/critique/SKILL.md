@@ -90,46 +90,97 @@ roster. A critic then reads one file rather than re-deriving refs.
 A roster is a real target, because an approved artifact has its own failure modes. The roster
 fidelity lens in step 3 names them.
 
-## Step 2 — Choose the models
+## Step 2 — Choose and resolve the roster
 
 Always ask, unless the caller already supplied a roster.
 
-A roster entry is `claude:<model>` or `codex[:<model>]`. Claude is the host, so a Claude entry
-runs as a `critique-worker` subagent. A Codex entry runs headless, and it needs the `codex`
-binary. Check for it with `command -v codex`, and offer it only where that succeeds. Omit a Codex
-model to take the default from `~/.codex/config.toml`.
+A roster entry is `<runtime>[:<model>][@<effort>]`, and the runtime is `claude` or `codex`.
+Claude is the host, so a Claude entry runs as a `critique-worker` subagent, and its model is one
+of the `Agent` tool's aliases: `opus`, `sonnet`, `haiku`, or `fable`. A Codex entry runs headless,
+and it needs the `codex` binary. Check for it with `command -v codex`, and offer it only where
+that succeeds.
 
-**The default roster is one Claude critic and one Codex critic:** `claude:<the session's model>,
-codex`. Recommend it whenever `codex` is present. Two runtimes miss more different defects than
-two models of one runtime. Two critics also give the agreement signal, so the run needs no
-refutation pass. Where `codex` is absent, fall back to the Claude critic alone, and say that the
-refutation pass then stands in for agreement.
+**The default roster is one Claude critic and one Codex critic:** `claude, codex`. Recommend it
+whenever `codex` is present. Two runtimes miss more different defects than two models of one
+runtime. Two critics also give the agreement signal, so the run needs no refutation pass. Where
+`codex` is absent, fall back to the Claude critic alone, and say that the refutation pass then
+stands in for agreement.
 
-**Deciding — the critique roster**
+### Resolve each entry to a model and an effort
+
+**The model is each vendor's recommended model, unless the entry names one.** No version name
+belongs in this skill. Each vendor's own ranking decides, so a new release reaches the next
+critique without an edit here:
 
 ```
-found:        claude (host), codex <present | absent>
-decision:     each model misses different defects, and only you know the budget
-default       claude:<model>, codex: one critic per runtime, and cross-model agreement
-one           claude alone: cheaper, and a refutation pass stands in for agreement
-more          a second Claude model: more coverage, at one more critic's cost
+  claude   opus. The alias always resolves to the newest Opus, Anthropic's default model
+  codex    the first listed model by priority in ~/.codex/models_cache.json, which Codex
+           refreshes from OpenAI. Fallback: `model` in ~/.codex/config.toml. Last resort:
+           omit -m, and read the model from codex.log after the run
 ```
 
-Which models should critique this? I recommend `claude:<model>, codex`, because one critic per
-runtime finds the widest spread of defects for two critics' cost.
+```bash
+jq -r '[.models[] | select(.visibility == "list" and .supported_in_api)]
+       | sort_by(.priority) | .[0].slug' ~/.codex/models_cache.json
+```
 
-⏸ waiting on you: name the models for this critique
+A frontier tier stays available by name, such as `claude:fable`, and so does a smaller one, such
+as `claude:sonnet`. Neither is the default. A frontier tier is slower and costs more per review,
+and for a small target the next paragraph lowers the effort instead of the model.
+
+**The effort follows the target, unless the entry names one.** Size it the way `/implement` sizes
+a task:
+
+```
+  medium   a few localized lines, docs, or config, where nothing a caller depends on changes
+  high     an ordinary diff or a draft plan                                        the default
+  xhigh    a public contract, auth, input handling, secrets, concurrency, a data migration,
+           or a diff spread across many files or repositories; every --integration pass
+```
+
+**Lower the effort for a small target, never the model.** Anthropic's guidance is that its newest
+model at a lower effort often matches an older model at a higher one, and one model per run keeps
+findings comparable. `max` runs only when the user names it, as `@max`.
+
+**Both critics in one critique run at one effort,** so neither reviews more shallowly than the
+other. A Codex model whose `supported_reasoning_levels` lacks that effort gets the highest level it
+lists below it.
+
+> **Deciding — the critique roster**
+>
+> - **Found:** claude (host) resolves to `opus`, the newest Opus; codex resolves to `<model>`, first
+>   in Codex's model list (or: codex absent)
+> - **Effort:** `<level>`, because <the table row that chose it>
+> - **Decision:** each model misses different defects, and only you know the budget
+> - **Default, `claude:opus@<level>, codex:<model>@<level>`:** one critic per runtime, and
+>   cross-model agreement
+> - **One, `claude:opus@<level>` alone:** cheaper, and a refutation pass stands in for agreement
+> - **More, a second Claude model:** more coverage, at one more critic's cost
+>
+> Which models should critique this? I recommend `claude:opus@<level>, codex:<model>@<level>`,
+> because one critic per runtime finds the widest spread of defects for two critics' cost.
+>
+> ⏸ waiting on you: name the models for this critique
+
+This `Deciding` offers options, so where the host has an interactive question tool, ask through
+it, per `rules/chat-vocabulary.md`'s **Which surface carries a question**. The shape above is the
+fallback in prose.
 
 Each model misses different defects, which is the point. Independent critics find more defects
 than one critic that you run repeatedly. A Claude model beside a Codex model is more independent
 than two Claude models.
 
-When `/plan` or `/implement` calls this skill, it already chose the roster. Use that roster, and
-do not ask again.
+When `/plan` or `/implement` calls this skill, it already chose the roster. Resolve any entry it
+left bare, use the result, and do not ask again.
 
-**One roster serves a whole run.** `/implement` chooses it once, then reuses it for every
-milestone critique and for the integration pass. Two milestones critiqued by different rosters
-produce findings nobody can compare.
+**One roster serves a whole run.** `/implement` resolves the models once, at its roster gate, and
+passes them to every milestone critique and to the integration pass. Two milestones critiqued by
+different models produce findings nobody can compare. The effort may still differ per milestone,
+because the milestones differ.
+
+**A resolved Codex entry pins its model by name,** so an edit to `config.toml` mid-run changes
+nothing. A Claude entry pins only its alias, because the `Agent` tool takes aliases alone. Step 5
+catches an alias that moved to a newer model.
 
 ## Step 3 — Pick the lenses
 
@@ -177,8 +228,8 @@ answers the other.
 ## Step 4 — Run the critics
 
 Run one critic per roster entry, each running all applicable lenses over the whole target. Follow
-`rules/agent-orchestration.md`. Every critic is a read-only worker, at effort `high` or above,
-because this is judgment work.
+`rules/agent-orchestration.md`. Every critic is a read-only worker, at the model and the effort
+step 2 resolved.
 
 Write the brief once, to `brief.md` in the critique directory. Every critic gets the same brief:
 
@@ -199,11 +250,15 @@ fresh subagent, never a fork.
 Start every critic in one message, so they run concurrently:
 
 ```
-Agent(subagent_type="critique-worker", description="critique <model>", model=<model>,
-      effort=<high or above>, prompt=<the contents of brief.md>)
+Agent(subagent_type="critique-worker", description="critique <model>", model=<the entry's model>,
+      effort=<the entry's effort>, prompt=<the contents of brief.md>)
 
 Bash(run_in_background=true, command=<the command in references/runtime-codex.md>)
 ```
+
+Keep the agent ID each spawn returns, because step 5 reads that critic's record by it. A Codex
+critic always gets `-m <the entry's model>` and `-c model_reasoning_effort=<the entry's effort>`.
+Passing both makes the command independent of whatever `config.toml` holds.
 
 **Never write a headless launch argument from memory.** Read `references/runtime-codex.md`
 before you start a Codex critic. It carries the command, the version it was measured against, and
@@ -217,6 +272,20 @@ Wait for every critic's completion notice. A subagent's notice and a background 
 notice both count. Never poll.
 
 ## Step 5 — Merge
+
+**Confirm what ran before you merge.** An alias names a tier, not a model, and a subagent can
+switch to a fallback model, so read each critic's own record:
+
+```
+  critique-worker   F=$(find ~/.claude/projects -name "agent-<agent ID>.jsonl" | head -1)
+                    jq -r 'select(.type == "assistant") | .message.model' "$F" | sort -u
+                    jq -r .effort "${F%.jsonl}.meta.json"
+  codex             the `model:` and `reasoning effort:` lines at the top of codex.log
+  claude -p         the keys of `.modelUsage` in claude.json
+```
+
+The ledger names what ran. Where that differs from the resolved roster, say so in the ledger's
+header. A fallback model and an alias that moved mid-run are the two cases.
 
 Read each critic's findings: the fenced `json` block that ends a `critique-worker`'s final
 message, and `codex.json` for a Codex critic. A critic whose `blocked` is non-empty did not finish.
@@ -240,6 +309,10 @@ and the user delegated it anyway. Two two-model findings turned out to be no fin
 instead. Spawn one `refute-worker` per finding, all in one message, and give each one the
 finding, the target file, and the plan. It defaults to refuted when it is uncertain. Drop what it
 refutes.
+
+**A refuter checks one finding, so it runs one effort step below the critique, and never below
+`medium`.** It uses the roster's Claude model. A narrow, well-bounded check needs less depth than a
+review of the whole target.
 
 ## Step 6 — Filter, then escalate what the user must decide
 
@@ -302,25 +375,23 @@ Each one is a prohibition. Never escalate a finding on one of these grounds.
 Report one line per decision, ranked by criticality. Criticality means a wrong result outranks a
 plausible failure, which outranks a nit.
 
-```
-Ledger — <target> (<models>)
+> **Ledger — <target>** (<model> · <effort>, <model> · <effort>)
+>
+> | Severity | Location | Finding | Action |
+> |---|---|---|---|
+> | bug | `src/token.php:88` | refresh drops the retry budget | **Fixed:** threaded the budget through the call. **Declined:** reset it in the caller, which cannot see the ceiling |
+> | risk | `src/auth.php:12` | the 401 path retries without a bound | **Fixed:** bounded the loop |
+> | nit | `src/auth.php:40` | `$tok` shadows the outer binding | **Fixed:** renamed it to `$refreshed` |
 
-  bug    `src/token.php:88`   refresh drops the retry budget
-         fixed: threaded the budget through the call
-         declined: reset it in the caller — the caller cannot see the ceiling
-
-  risk   `src/auth.php:12`    the 401 path retries without a bound
-         fixed: bounded the loop
-
-  nit    `src/auth.php:40`    `$tok` shadows the outer binding
-         fixed: renamed it to `$refreshed`
-```
+**The header names each critic's model and effort as it ran,** from step 5's records, never
+an alias or a bare runtime. A reader then knows exactly which models found what, and two
+ledgers compare only when their headers match.
 
 Carry the declined alternative wherever more than one fix existed, and give its reason in one
-clause. Omit that line where only one fix existed.
+clause, in the action cell. Omit it where only one fix existed.
 
-The `fixed:` line reads `remedy:` wherever the run applied nothing. That covers a standalone
-critique and every `--integration` pass.
+The action reads **Remedy:** rather than **Fixed:** wherever the run applied nothing. That covers a
+standalone critique and every `--integration` pass.
 
 **The ledger is the only surface where a remedy choice stays correctable.** C6 escalates a
 genuine tie alone, so every other choice between two fixes reaches the user here.
@@ -339,18 +410,16 @@ C1 through C5 carry a proposal you already formed, so each takes `Approve`. C6 c
 you cannot rank, so it takes `Deciding`. A C6 recommendation names the ground it rests on,
 because the stated grounds do not rank the two fixes.
 
-```
-**Approve — `src/token.php:88`**
-
-  found:      refresh drops the retry budget — C1, the ceiling is unverifiable
-  decision:   the fix assumes a ceiling of 3, and no code in the repository states one
-  fix it      threads the budget through the call, on an assumed ceiling
-  drop it     three consecutive 401s retry forever
-
-Fix it as proposed, or drop it? I recommend fixing it.
-```
-
-⏸ waiting on you: fix `src/token.php:88` as proposed, or drop the finding
+> **Approve — `src/token.php:88`**
+>
+> - **Found:** refresh drops the retry budget — C1, the ceiling is unverifiable
+> - **Decision:** the fix assumes a ceiling of 3, and no code in the repository states one
+> - **Fix it:** threads the budget through the call, on an assumed ceiling
+> - **Drop it:** three consecutive 401s retry forever
+>
+> Fix it as proposed, or drop it? I recommend fixing it.
+>
+> ⏸ waiting on you: fix `src/token.php:88` as proposed, or drop the finding
 
 Every finding carries a severity — `bug` (wrong behavior), `risk` (plausible failure), `nit`
 (style, naming, cleanup). Severity ranks the ledger, so never drop it from a line.
@@ -364,8 +433,7 @@ in place. It moves to `archive/` with its plan.
 If nothing survives, there is no ledger and no decision to request. Report the action alone —
 one line, no findings block, no closing question:
 
-```
-Critique of <target> (<models>) — nothing survived. 4 findings raised, all refuted.
-```
+> Critique of <target> (<model> · <effort> per critic): nothing survived. 4 findings raised, all
+> refuted.
 
 A clean critique is a real outcome, not a failure to try hard enough.

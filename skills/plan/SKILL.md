@@ -31,7 +31,7 @@ With no arguments:
 > ⏸ waiting on you: name what to plan
 
 That question opens a `Deciding` gate, so it carries the heading and the footer. It offers nothing
-to rank, so it carries no context block and no recommendation. `rules/chat-vocabulary.md` states
+to rank, so it carries no context list and no recommendation. `rules/chat-vocabulary.md` states
 all three.
 
 ## Gate A — Scope and investigation
@@ -45,10 +45,11 @@ write no second copy. `git rev-parse --show-toplevel` is the wrong command here:
 `<container>/main` in a converted repository, and `/worktree cut` then refuses the container as a
 plain clone.
 
-**Critique roster:** `Critique:` defaults to `/critique`'s default roster, one Claude critic at
-the session's model and one Codex critic. Where `codex` is absent, it falls back to the Claude
-critic alone, and the gate says so. The user may change it to any roster `/critique` step 2
-accepts. Write it to the plan's `### References`.
+**Critique roster:** `Critique:` defaults to `/critique`'s default roster, `claude, codex`: one
+critic per runtime, each on its vendor's recommended model. Where `codex` is absent, it falls back
+to the Claude critic alone, and the gate says so. The user may change it to any roster `/critique`
+step 2 accepts. Write it to the plan's `### References` as chosen, unresolved: `/implement`
+resolves the models when it starts, and each critique sizes its own effort to its target.
 
 **Target repos:** infer, and show your evidence for each. Draw on the current repo and on the
 repos a research file's target list names. Draw on repos implied by `file:line` references in
@@ -66,31 +67,34 @@ gaps, and do not re-derive what you already know.
 tells the user what the grilling costs. A count of questions does not, and the count ran 1.43×
 low across twenty runs.
 
-**Approve — /plan scope**
-
-```
-Before I investigate — confirm or adjust:
-
-  Critique:     claude:<model>, codex   (one critic per runtime; change it)
-
-  Repos in scope:
-    <repo>  ─ <evidence>                    <N> commits behind <default>
-    <repo>  ─ <evidence>                    <N> commits behind <default>
-
-  Not included: <repo> (<why>)
-
-  I plan to investigate (<N> parallel workers):
-    1. <specific question>                  <model> · <effort>
-    2. <specific question>                  <model> · <effort>
-
-  Decisions I expect to put to you:
-    1. <the decision, in a phrase>
-    2. <the decision, in a phrase>
-
-Accept this scope, or tell me which repo or question to add or cut.
-```
-
-⏸ waiting on you: accept the `/plan` scope, or name what to change
+> **Approve — /plan scope**
+>
+> Before I investigate, confirm or adjust.
+>
+> **Critique:** claude, codex (each vendor's recommended model; effort sized per target)
+>
+> | Repo | Why it's in scope | Behind `<default>` |
+> |---|---|---|
+> | `<repo>` | <evidence> | <N> commits |
+> | `<repo>` | <evidence> | <N> commits |
+>
+> **Not included:** `<repo>` (<why>)
+>
+> **I plan to investigate**, with <N> parallel workers:
+>
+> | # | Question | Model · effort |
+> |---|---|---|
+> | 1 | <specific question> | <model> · <effort> |
+> | 2 | <specific question> | <model> · <effort> |
+>
+> **Decisions I expect to put to you:**
+>
+> 1. <the decision, in a phrase>
+> 2. <the decision, in a phrase>
+>
+> Accept this scope, or tell me which repo or question to add or cut.
+>
+> ⏸ waiting on you: accept the `/plan` scope, or name what to change
 
 ## Research phase
 
@@ -204,7 +208,7 @@ One line per repo when more than one is in scope. The path is the container gate
 
 ### References
 - Research absorbed from: <the research file, if any — now in archive/>
-- Critique roster: <one entry per critic, such as claude:opus, codex>
+- Critique roster: <the entries as chosen, such as claude, codex>
 ```
 
 The plan leads and the evidence follows. One `**Repos**:` line carries the container path
@@ -259,25 +263,29 @@ Rules the rest of the workflow depends on:
 ## Gate E — Approval and fork
 
 Optionally run `/critique <the plan file>` first, with the gate A `Critique:` roster, and fold in
-what survives.
+what survives. `/critique` sizes its effort from its target table, so an ordinary plan runs at
+`high`.
+
+Open the plan in the file pane first, per `rules/agent-orchestration.md`'s **Show the user a state
+file**, so the user reads the whole plan beside the gate. Open it again after each revision.
 
 Present the design — the slices, their file scopes, and any constraint that ties two together:
 
-**Approve — `plan/<slug>`**
-
-```
-Plan: <state>/plans/<slug>/plan.md
-
-  <name>            rules/*.md
-  <name>            skills/*.md        same-worker as <name>
-  <name>            README.md          after everything above
-
-  Not included: <thing> (<why>)
-
-Approve the plan?
-```
-
-⏸ waiting on you: approve `plan/<slug>`, or name the slice to change
+> **Approve — `plan/<slug>`**
+>
+> **Plan:** `<state>/plans/<slug>/plan.md`
+>
+> | Slice | Files | Constraint |
+> |---|---|---|
+> | <name> | `rules/*.md` | |
+> | <name> | `skills/*.md` | same-worker as <name> |
+> | <name> | `README.md` | after everything above |
+>
+> **Not included:** <thing> (<why>)
+>
+> Approve the plan?
+>
+> ⏸ waiting on you: approve `plan/<slug>`, or name the slice to change
 
 **No milestones, no waves, no worker count, no models here.** `/implement` composes and
 schedules those at decomposition, against facts that are current then, and gates them
@@ -288,18 +296,20 @@ explicit approval.**
 
 Once the user approves:
 
-**Deciding — what happens to `plan/<slug>`**
+> **Deciding — what happens to `plan/<slug>`**
+>
+> Plan approved. What next?
+>
+> 1. **Implement now:** I'll start `/implement`; you'll next see its roster gate.
+> 2. **Leave active:** the plan stays in `<state>/plans/`; run `/implement <slug>` whenever.
+>
+> I recommend <one of the two>, because <the ground>.
+>
+> ⏸ waiting on you: pick one of the two for `plan/<slug>`
 
-```
-Plan approved. What next?
-
-  1. Implement now   — I'll start /implement; you'll next see its roster gate
-  2. Leave active    — the plan stays in <state>/plans/; run /implement <slug> whenever
-```
-
-I recommend <one of the two>, because <the ground>.
-
-⏸ waiting on you: pick one of the two for `plan/<slug>`
+This `Deciding` offers options, so where the host has an interactive question tool, ask through
+it, per `rules/chat-vocabulary.md`'s **Which surface carries a question**. The shape above is the
+fallback in prose.
 
 `rules/chat-vocabulary.md` makes that line mandatory. This `Deciding` presents two options you
 did not rank, so it never counts as its own recommendation.

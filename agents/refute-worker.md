@@ -2,6 +2,8 @@
 name: refute-worker
 description: Argues that one /critique finding is not real. Spawned by the /critique skill only, for a one-model roster.
 tools: Read, Grep, Glob
+model: opus
+effort: medium
 permissionMode: auto
 maxTurns: 60
 background: true

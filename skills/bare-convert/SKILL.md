@@ -86,19 +86,20 @@ because `worktree add` takes one.
 Print every absolute path that changes, and the uncommitted state you carry over. Change
 nothing until the user approves. `rules/chat-vocabulary.md` gives the shape of that gate.
 
-**Approve — convert `<clone>` to a container**
-
-```
-container   <clone>                stays at this path
-worktree    <clone>          ->    <clone>/main
-bare repo   <clone>/.git     ->    <clone>/.git, core.bare true
-branch      <branch>               carried over, checked out at <clone>/main
-carried     <n> modified, <n> staged, <n> untracked, <n> ignored
-
-Convert this clone?
-```
-
-⏸ waiting on you: approve this conversion, or name a different clone
+> **Approve — convert `<clone>` to a container**
+>
+> | | Now | After |
+> |---|---|---|
+> | Container | `<clone>` | stays at this path |
+> | Your checkout | `<clone>` | `<clone>/main` |
+> | Repository | `<clone>/.git` | `<clone>/.git`, with `core.bare true` |
+> | Branch | `<branch>` | carried over, checked out at `<clone>/main` |
+>
+> **Carried over:** <n> modified, <n> staged, <n> untracked, <n> ignored
+>
+> Convert this clone?
+>
+> ⏸ waiting on you: approve this conversion, or name a different clone
 
 ### Record the state, then move
 
@@ -224,18 +225,16 @@ run, and it needs no gate.
 
 ### Propose it, then write it
 
-**Approve — write `<container>/main/scripts/wt-provision.sh`**
-
-```
-script      absent                            (or: present, and stale — <what changed>)
-copies      <the machine-local files found>
-derives     <each derived directory, and the reconcile command for it>
-compose     <the base file, and the services its override resets>       (or: none)
-
-Write this script?
-```
-
-⏸ waiting on you: approve the script, or tell me what this repository actually needs
+> **Approve — write `<container>/main/scripts/wt-provision.sh`**
+>
+> - **Script:** absent (or: present, and stale — <what changed>)
+> - **Copies:** <the machine-local files found>
+> - **Derives:** <each derived directory, and the reconcile command for it>
+> - **Compose:** <the base file, and the services its override resets> (or: none)
+>
+> Write this script?
+>
+> ⏸ waiting on you: approve the script, or tell me what this repository actually needs
 
 **Ask about what the repository cannot tell you.** A reconcile command, a certificate path, and a
 service nobody runs are all judgment. Propose an answer and let the user correct it.

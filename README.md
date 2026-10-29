@@ -88,7 +88,10 @@ links into another checkout, `~/.claude/backups/`, and the run state in `~/.agen
 **Let the skills reach the state directory.** Plans, task specs, and critique inputs live under
 `~/.agents/work`, which sits outside every project. Workers read them there, and the orchestrator
 writes them. Add its absolute path to `permissions.additionalDirectories` in
-`~/.claude/settings.json`, or an access outside the project can ask first:
+`~/.claude/settings.json`, or an access outside the project can ask first. The desktop app's file
+pane ignores that setting, so `/plan` and `/research` also grant the folder to their session before
+they open a plan or a research file there. In auto mode that grant asks nothing once you trust the
+folder:
 
 ```json
 { "permissions": { "additionalDirectories": ["/Users/<you>/.agents/work"] } }
@@ -188,7 +191,8 @@ The skills spawn four workers, each defined in `agents/` and installed to `~/.cl
 | [`implement-worker`](agents/implement-worker.md) | editing | `Read`, `Grep`, `Glob`, `Edit`, `Write`, `Bash`, and a git-write hook | `/implement` |
 
 Each one runs in the background, takes its model and effort from the call, and sets `maxTurns`
-as its bound. Each description names the skill that spawns it, so Claude does not delegate
+as its bound. A critic and a refuter fall back to their definition's `opus` and effort when a call
+names neither. Each description names the skill that spawns it, so Claude does not delegate
 unrelated work to it. The definition carries what every worker of its class shares, and the brief
 carries the one job.
 
@@ -231,15 +235,15 @@ emits nothing and looks finished.
 inherits `auto`, `acceptEdits`, or `bypassPermissions` from the session, whatever its definition
 says. A worker that needs approval surfaces its prompt in your session and names itself.
 
-**Gates carry evidence for what they inferred.** A confirmation justifies the judgments it could
-get wrong: why these repos, why these investigation areas, why this is out of scope. A bad guess
-is then visible rather than buried. A gate prints a looked-up fact without argument; a repo list
-inferred from file references needs one. A gate's opening message carries a reserved heading and
-fences its block, per [chat-vocabulary](rules/chat-vocabulary.md). `Approve` marks a proposal,
-and `Deciding` marks a question you cannot answer yourself.
+**Gates carry evidence for what they inferred.** A confirmation justifies the judgments it could get
+wrong: why these repos, why these investigation areas, why this is out of scope. A bad guess is then
+visible rather than buried. A gate prints a looked-up fact without argument; a repo list inferred
+from file references needs one. A gate's opening message carries a reserved heading and writes its
+block as Markdown, per [chat-vocabulary](rules/chat-vocabulary.md). `Approve` marks a proposal, and
+`Deciding` marks a question you cannot answer yourself.
 
 **`/plan` grills you.** Gate A shows one changeable line, `Critique:`, so no later question asks
-for a roster. One question per message, never two. Each one carries a fenced context block, a
+for a roster. One question per message, never two. Each one carries a context list, a
 mandatory recommendation, and the `⏸` footer. Only the first question carries the `Deciding`
 heading, so a long grilling does not become a column of headings. The question whose answer
 changes the most other answers comes first. `/plan` looks up anything the filesystem or a tool
@@ -306,11 +310,23 @@ worker with your decision, and it keeps everything it already read.
 Claude model runs as a `critique-worker` subagent, and Codex runs headless. The default roster is
 one of each, because two runtimes miss more different defects than two models of one runtime.
 A standalone run asks you for the roster and recommends that default, and `/implement` supplies
-the plan's. Each critic tries to break the target
-rather than survey it. Cross-model agreement is evidence that a defect is real, because two
-models rarely invent one defect. One model gives no such evidence, so a refutation pass takes its
-place and drops what it refutes. Agreement raises confidence, and it drops nothing. Every merged
-finding reaches the filter, whether one critic found it or every critic did.
+the plan's.
+
+**Each critic runs its vendor's recommended model, at an effort sized to the target.** A bare
+`claude` resolves to `opus`, an alias that follows the newest Opus. A bare `codex` resolves to the
+model Codex lists first in its own model cache. New releases therefore arrive with no edit here.
+Effort is `medium` for a small, contained change, `high` for an ordinary diff or plan, and `xhigh`
+for contracts, security-sensitive code, wide diffs, and the integration pass. A small target
+lowers the effort, never the model, because the newest model at a lower effort often matches an
+older one at a higher effort. `/implement` resolves the models once per run, so every milestone's
+findings come from the same models. Every ledger names the model and effort each critic actually
+ran, read from that critic's own record.
+
+Each critic tries to break the target rather than survey it. Cross-model agreement is evidence that
+a defect is real, because two models rarely invent one defect. One model gives no such evidence, so
+a refutation pass takes its place and drops what it refutes. Agreement raises confidence, and it
+drops nothing. Every merged finding reaches the filter, whether one critic found it or every critic
+did.
 
 **A filter decides which findings reach you.** `/critique` accepts a finding by default. What
 acceptance does then depends on who called. A milestone critique inside `/implement` applies the
