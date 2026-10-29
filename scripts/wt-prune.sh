@@ -566,6 +566,7 @@ KEPT_ASKED=0
 UNANSWERED=0
 ORPHANS_REMOVED=0
 FOLDER_KB=0
+: >"${TMP}/failed"
 
 remove_projects() {
   local list="$1" p
@@ -579,6 +580,25 @@ remove_projects() {
   done
 }
 
+remove_folder() {
+  local container="$1" wt="$2" attempt
+  if git --git-dir="${container}/.git" worktree remove --force "${wt}" </dev/null 2>"${TMP}/remove.err"; then
+    return 0
+  fi
+  if [[ "${wt}" != /* || -L "${wt}" || "${wt}" == "${container}" || "${wt}" == "${container}/main" ]]; then
+    return 1
+  fi
+  # git worktree remove can fail partway through a large folder, and a retry succeeds.
+  for attempt in 1 2 3; do
+    if [[ ! -e "${wt}" ]] || rm -rf -- "${wt}" 2>"${TMP}/remove.err"; then
+      break
+    fi
+    sleep 2
+  done
+  git --git-dir="${container}/.git" worktree prune
+  [[ ! -e "${wt}" ]]
+}
+
 delete_worktree() {
   local container="$1" wt="$2" branch="$3" projects="$4" kb
   if [[ -d "${wt}" ]]; then
@@ -587,7 +607,11 @@ delete_worktree() {
   fi
   remove_projects "${projects}"
   if [[ -d "${wt}" ]]; then
-    git --git-dir="${container}/.git" worktree remove --force "${wt}" </dev/null
+    if ! remove_folder "${container}" "${wt}"; then
+      echo "  could not remove ${wt}: $(tail -1 "${TMP}/remove.err" 2>/dev/null)"
+      echo "${wt}" >>"${TMP}/failed"
+      return 1
+    fi
   else
     # git refuses to delete a branch that a missing worktree still holds.
     git --git-dir="${container}/.git" worktree prune
@@ -600,7 +624,7 @@ delete_worktree() {
 archive_worktree() {
   local repo="$1" wt="$2" branch="$3" head="$4" pr="$5" review="$6" pr_head="$7" dest untracked
   dest="${ARCHIVE_ROOT}/${repo}-$(basename "${wt}")-$(date +%Y-%m-%dt%H%M)"
-  mkdir -p "${dest}"
+  mkdir -p "${dest}" || return 1
   {
     echo "worktree  ${wt}"
     echo "branch    ${branch}"
@@ -608,18 +632,18 @@ archive_worktree() {
     echo "pr        ${pr}"
     echo "archived  $(date '+%Y-%m-%d %H:%M')"
   } >"${dest}/info.txt"
-  git -C "${wt}" diff HEAD --binary >"${dest}/uncommitted.patch"
+  git -C "${wt}" diff HEAD --binary >"${dest}/uncommitted.patch" || return 1
   [[ -s "${dest}/uncommitted.patch" ]] || rm -f "${dest}/uncommitted.patch"
   untracked="$(cd "${wt}" && git ls-files -o --exclude-standard | grep -vxF "${GENERATED_PATHS}" || true)"
   if [[ -n "${untracked}" ]]; then
-    (cd "${wt}" && printf '%s\n' "${untracked}" | tar -czf "${dest}/untracked.tar.gz" -T -)
+    (cd "${wt}" && printf '%s\n' "${untracked}" | tar -czf "${dest}/untracked.tar.gz" -T -) || return 1
   fi
   unpushed_args "${wt}" "${review}" "${pr_head}"
   if [[ "$(git -C "${wt}" rev-list --count "${UNPUSHED_ARGS[@]}")" -gt 0 ]]; then
     if [[ "${branch}" != "-" ]]; then
-      git -C "${wt}" bundle create "${dest}/commits.bundle" "${branch}" --not --remotes >/dev/null 2>&1
+      git -C "${wt}" bundle create "${dest}/commits.bundle" "${branch}" --not --remotes >/dev/null 2>&1 || return 1
     else
-      git -C "${wt}" bundle create "${dest}/commits.bundle" HEAD --not --remotes >/dev/null 2>&1
+      git -C "${wt}" bundle create "${dest}/commits.bundle" HEAD --not --remotes >/dev/null 2>&1 || return 1
     fi
   fi
   echo "  saved to ${dest}"
@@ -668,8 +692,9 @@ echo "Removing what is safe to remove"
 while IFS=$'\t' read -r container repo wt name branch head action reason pr_num pr_state age dirty unpushed projects pr_head <&3; do
   [[ "${action}" == "delete" ]] || continue
   echo "  ${repo}/${name}"
-  delete_worktree "${container}" "${wt}" "${branch}" "${projects}"
-  REMOVED_AUTO=$((REMOVED_AUTO + 1))
+  if delete_worktree "${container}" "${wt}" "${branch}" "${projects}"; then
+    REMOVED_AUTO=$((REMOVED_AUTO + 1))
+  fi
 done 3<"${TMP}/worktrees.tsv"
 while IFS=$'\t' read -r p action reason <&3; do
   [[ "${action}" == "delete" ]] || continue
@@ -708,17 +733,21 @@ while IFS=$'\t' read -r container repo wt name branch head action reason pr_num 
     read -r choice </dev/tty || choice=q
     case "${choice}" in
       d)
-        delete_worktree "${container}" "${wt}" "${branch}" "${projects}"
-        echo "  removed"
-        REMOVED_ASKED=$((REMOVED_ASKED + 1))
+        if delete_worktree "${container}" "${wt}" "${branch}" "${projects}"; then
+          echo "  removed"
+          REMOVED_ASKED=$((REMOVED_ASKED + 1))
+        fi
         break
         ;;
       a)
-        archive_worktree "${repo}" "${wt}" "${branch}" "${head}" "${pr_num}" "${review}" "${pr_head}"
-        delete_worktree "${container}" "${wt}" "${branch}" "${projects}"
-        echo "  removed"
-        REMOVED_ASKED=$((REMOVED_ASKED + 1))
-        ARCHIVED=$((ARCHIVED + 1))
+        if ! archive_worktree "${repo}" "${wt}" "${branch}" "${head}" "${pr_num}" "${review}" "${pr_head}"; then
+          echo "  could not save the work, so the worktree stays"
+          echo "${wt}" >>"${TMP}/failed"
+        elif delete_worktree "${container}" "${wt}" "${branch}" "${projects}"; then
+          echo "  removed"
+          REMOVED_ASKED=$((REMOVED_ASKED + 1))
+          ARCHIVED=$((ARCHIVED + 1))
+        fi
         break
         ;;
       k)
@@ -783,6 +812,10 @@ if [[ "${ARCHIVED}" -gt 0 ]]; then
   printf '  archived  %s to %s\n' "$(plural "${ARCHIVED}" worktree)" "${ARCHIVE_ROOT}"
 fi
 printf '  kept      %s active, %s by your choice, %s unanswered\n' "${KEPT_ACTIVE}" "${KEPT_ASKED}" "${UNANSWERED}"
+if [[ -s "${TMP}/failed" ]]; then
+  printf '  failed    %s, still on disk:\n' "$(plural "$(wc -l <"${TMP}/failed" | tr -d ' ')" worktree)"
+  sed 's/^/              /' "${TMP}/failed"
+fi
 printf '  disk      %s free space gained (the folders measured %s)\n' \
   "$(human $(((DISK_AFTER - DISK_BEFORE) * 1024)))" "$(human $((FOLDER_KB * 1024)))"
 if [[ "${DOCKER}" -eq 1 ]]; then
