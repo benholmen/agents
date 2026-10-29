@@ -35,17 +35,18 @@ Rules and skills are linked one at a time, so the directories stay real ones
 you own. Anything else you keep there is left alone, and nothing you create
 locally lands in this repo.
 
-The /worktree clone helper and the implement-worker git hook link to stable
-paths, so a provisioning script and an agent definition can call them without
-knowing where this repo lives:
+The /worktree clone helper, the worktree pruner, and the implement-worker git
+hook link to stable paths, so a provisioning script, an agent definition, and
+you can call them without knowing where this repo lives:
 
   ~/.claude/bin/wt-clone.sh          -> scripts/wt-clone.sh
+  ~/.claude/bin/wt-prune.sh          -> scripts/wt-prune.sh
   ~/.claude/bin/deny-git-writes.sh   -> scripts/deny-git-writes.sh
 
 Re-run after adding or renaming a file. The per-entry links -- rules, skills,
 and agents -- are pruned once their source has gone, and so is a per-entry
 link into another checkout of this repository that has no counterpart here.
-Nothing else is touched. The direct links, references/ and the two in bin/,
+Nothing else is touched. The direct links, references/ and the three in bin/,
 are not pruned, so renaming one of those sources leaves the old link dangling.
 
 A generated ~/.codex/AGENTS.md is the one file this repository writes rather
@@ -260,6 +261,7 @@ if [[ -L "${DEST}/bin" || ( -e "${DEST}/bin" && ! -d "${DEST}/bin" ) ]]; then
 fi
 mkdir -p "${DEST}/bin"
 link "${REPO_ROOT}/scripts/wt-clone.sh" "${DEST}/bin/wt-clone.sh"
+link "${REPO_ROOT}/scripts/wt-prune.sh" "${DEST}/bin/wt-prune.sh"
 link "${REPO_ROOT}/scripts/deny-git-writes.sh" "${DEST}/bin/deny-git-writes.sh"
 
 echo "Installing for Codex..."

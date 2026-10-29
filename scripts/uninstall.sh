@@ -89,6 +89,7 @@ unlink_entries "${DEST}/skills"
 unlink_entries "${DEST}/agents"
 unlink_if_ours "${DEST}/references"
 unlink_if_ours "${DEST}/bin/wt-clone.sh"
+unlink_if_ours "${DEST}/bin/wt-prune.sh"
 unlink_if_ours "${DEST}/bin/deny-git-writes.sh"
 
 echo "Uninstalling for Codex..."

@@ -19,6 +19,7 @@ One run installs both runtimes.
 | `~/.claude/agents/<name>.md` | the worker definitions the skills spawn — **linked per file** | Claude |
 | `~/.claude/references` | adapters — whole directory, **never pruned** | Claude |
 | `~/.claude/bin/wt-clone.sh` | the `/worktree` clone helper — **linked directly, never pruned** | both |
+| `~/.claude/bin/wt-prune.sh` | removes merged and abandoned worktrees with their Docker stacks — **linked directly, never pruned** | both |
 | `~/.claude/bin/deny-git-writes.sh` | the `implement-worker` git hook — **linked directly, never pruned** | Claude |
 | `~/.agents/skills/<name>/` | the same skills — **linked per skill** | Codex |
 | `~/.agents/references` | the same adapters — whole directory, **never pruned** | Codex |
@@ -60,7 +61,7 @@ anything whose absence fails silently.
 
 Re-run the script after you **add or rename** a file. An edit to an existing rule, skill, or
 agent takes effect immediately. The script prunes a per-entry link — a rule, a skill, or an
-agent — whose source is gone. It never prunes the direct links: `references/` and the two in
+agent — whose source is gone. It never prunes the direct links: `references/` and the three in
 `bin/`. A renamed source there leaves a dangling link. It moves anything real in the way to
 `~/.claude/backups/` first. Override the repository root with `AGENTS_REPO=/path/to/agents`.
 
