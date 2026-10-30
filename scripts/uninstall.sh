@@ -22,7 +22,7 @@ runtimes:
 
 It touches nothing else. Your own files, links into another checkout, the
 backups the installer made in ~/.claude/backups, and the run state in
-~/.agents/work all stay.
+~/repos/.agents/work all stay.
 
 Override the repo root with AGENTS_REPO=/path/to/agents.
 USAGE
@@ -100,4 +100,4 @@ remove_git_hooks
 
 echo ""
 echo "Uninstalled. The installer's backups stay in ~/.claude/backups, and run"
-echo "state stays in ~/.agents/work."
+echo "state stays in ~/repos/.agents/work."

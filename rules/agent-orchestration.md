@@ -161,7 +161,7 @@ and say so in the ledger. Never reach for a bypass flag to make a launch succeed
 All run state lives in files, in one directory outside every repository:
 
 ```
-~/.agents/work/
+~/repos/.agents/work/
   research/<slug>.md                    a standalone /research result
   plans/<slug>/plan.md                  the plan
   plans/<slug>/state.yml                the schedule and its progress
@@ -173,7 +173,7 @@ All run state lives in files, in one directory outside every repository:
   archive/                              finished plans and absorbed research
 ```
 
-`<state>` in any skill means `~/.agents/work`. Create a directory before a step writes into it.
+`<state>` in any skill means `~/repos/.agents/work`. Create a directory before a step writes into it.
 
 **The orchestrator owns `state.yml`, and no worker writes it.** One writer keeps it consistent.
 Change one key at a time with the Edit tool.
@@ -185,13 +185,15 @@ project name.
 **Archive rather than delete.** Move a finished plan's directory into `archive/` whole. It stays
 readable and searchable, and it no longer claims its branches.
 
-**Show the user a state file in the desktop app's file pane.** The pane opens only the session's
-own folders and the folders the app granted it. `permissions.additionalDirectories` lets the tools
-reach the state directory, but the pane ignores that setting, and it resolves a symlink to its
-target before it checks. Grant the folder before the first file you show in a session:
+**The state directory sits under the projects root, `~/repos`.** A session opened at `~/repos`
+already holds it as one of its folders, so the desktop app's file pane opens a state file with no
+grant. The pane opens only the session's own folders and the folders the app granted it.
+`permissions.additionalDirectories` lets the tools reach the state directory, but the pane ignores
+that setting, and it resolves a symlink to its target before it checks. A session opened in one
+repository does not hold `~/repos`, so grant the folder before the first file you show there:
 
 ```
-mcp__ccd_directory__request_directory(path="~/.agents/work")
+mcp__ccd_directory__request_directory(path="~/repos/.agents/work")
 mcp__ccd_view__show_pane(pane="file", path="<the file, absolute>")
 ```
 

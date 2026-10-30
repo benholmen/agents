@@ -73,7 +73,7 @@ agent — whose source is gone. It never prunes the direct links: `references/` 
 
 It removes every link that resolves into this checkout, the `~/.codex/AGENTS.md` this checkout
 generated, and the git hooks the install wrote. It leaves everything else alone: your own files,
-links into another checkout, `~/.claude/backups/`, and the run state in `~/.agents/work`.
+links into another checkout, `~/.claude/backups/`, and the run state in `~/repos/.agents/work`.
 
 ### Requirements
 
@@ -87,7 +87,8 @@ links into another checkout, `~/.claude/backups/`, and the run state in `~/.agen
 | Nothing | `/grill`, `/worktree`, `/bare-convert`, and the rules |
 
 **Let the skills reach the state directory.** Plans, task specs, and critique inputs live under
-`~/.agents/work`, which sits outside every project. Workers read them there, and the orchestrator
+`~/repos/.agents/work`, which sits under the projects root and outside every repository. A session
+opened at `~/repos` reaches it directly. Workers read them there, and the orchestrator
 writes them. Add its absolute path to `permissions.additionalDirectories` in
 `~/.claude/settings.json`, or an access outside the project can ask first. The desktop app's file
 pane ignores that setting, so `/plan` and `/research` also grant the folder to their session before
@@ -95,7 +96,7 @@ they open a plan or a research file there. In auto mode that grant asks nothing 
 folder:
 
 ```json
-{ "permissions": { "additionalDirectories": ["/Users/<you>/.agents/work"] } }
+{ "permissions": { "additionalDirectories": ["/Users/<you>/repos/.agents/work"] } }
 ```
 
 ## Rules
@@ -199,13 +200,13 @@ carries the one job.
 
 ## How the system divides state
 
-**Run state lives in files, in `~/.agents/work`.** Research and plans are short-lived, and a
+**Run state lives in files, in `~/repos/.agents/work`.** Research and plans are short-lived, and a
 finished plan's directory moves into `archive/`. `state.yml` holds the schedule while
 `/implement` runs a plan, and it makes a stopped run resumable.
 
 Nothing in this repository stores your work.
 
-| Kind | Path under `~/.agents/work` |
+| Kind | Path under `~/repos/.agents/work` |
 |---|---|
 | Research | `research/<YYYY-MM-DD>t<HHMM>-<topic>.md` |
 | Plan | `plans/<slug>/plan.md` |

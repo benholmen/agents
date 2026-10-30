@@ -29,7 +29,7 @@ A stale worktree that would lose work is shown with its changes, and you
 choose for each one:
 
   d  delete it
-  a  save the work to ~/.agents/work/archive/worktrees, then delete it
+  a  save the work to ~/repos/.agents/work/archive/worktrees, then delete it
   k  keep it
   v  view the changes
   q  keep this one and every one after it
@@ -90,7 +90,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 GENERATED_PATHS="docker-compose.worktree.yml"
-ARCHIVE_ROOT="${HOME}/.agents/work/archive/worktrees"
+ARCHIVE_ROOT="${HOME}/repos/.agents/work/archive/worktrees"
 NOW="$(date +%s)"
 HERE="$(pwd -P)"
 

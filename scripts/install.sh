@@ -323,7 +323,7 @@ fi
 echo ""
 echo "Installed for both runtimes. Rules apply to every session; skills are"
 echo "slash commands on Claude and \$-invoked skills on Codex."
-echo "Run state lives in ~/.agents/work. /critique offers a Codex critic only"
+echo "Run state lives in ~/repos/.agents/work. /critique offers a Codex critic only"
 echo "where the codex binary is installed."
 echo ""
 echo "Codex has no disable-model-invocation, so it can invoke /bare-convert"
