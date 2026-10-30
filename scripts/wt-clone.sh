@@ -3,7 +3,7 @@ set -euo pipefail
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   cat <<'USAGE'
-Usage: wt-clone.sh <source> <destination>
+Usage: wt-clone.sh <source> <destination> [link-root]
 
 Copies a file or a directory into a milestone worktree. It uses a
 copy-on-write clone where the filesystem supports one, and a plain copy
@@ -29,7 +29,9 @@ A symlinked source is resolved first, so the destination holds a real
 file or directory rather than a link back into the source tree. The
 script copies a symlink inside the source as a symlink, because a pnpm
 store needs its internal links. It refuses one that resolves outside the
-source, and names the link and its target.
+source, and names the link and its target. A relative link that resolves
+inside link-root is allowed too, because it resolves to the same place
+when the destination sits at the same depth in a sibling of link-root.
 
 The destination must not exist, and a symlink there is refused even when
 it dangles. The script also refuses a symlinked directory in the
@@ -47,14 +49,15 @@ USAGE
   exit 0
 fi
 
-if [[ $# -ne 2 ]]; then
-  echo "error: expected 2 arguments, got $#" >&2
-  echo "usage: wt-clone.sh <source> <destination>" >&2
+if [[ $# -ne 2 && $# -ne 3 ]]; then
+  echo "error: expected 2 or 3 arguments, got $#" >&2
+  echo "usage: wt-clone.sh <source> <destination> [link-root]" >&2
   exit 2
 fi
 
 SOURCE="$1"
 DEST="$2"
+LINK_ROOT="${3:-}"
 
 if [[ ! -e "${SOURCE}" ]]; then
   echo "error: source missing: ${SOURCE}" >&2
@@ -155,6 +158,11 @@ check_source_links() {
     case "${NORMALISED}" in
       "${root}" | "${root}"/*) continue ;;
     esac
+    if [[ -n "${LINK_ROOT}" && "${target}" != /* ]]; then
+      case "${NORMALISED}" in
+        "${LINK_ROOT}"/*) continue ;;
+      esac
+    fi
     echo "error: a symlink in the source resolves outside it, refusing to clone it" >&2
     echo "error: ${link} -> ${target}" >&2
     echo "error: it resolves to ${NORMALISED}, which is outside ${root}" >&2
@@ -162,6 +170,10 @@ check_source_links() {
   done < <(find "${root}" -type l)
   return 0
 }
+
+if [[ -n "${LINK_ROOT}" ]]; then
+  LINK_ROOT="$(cd -P "${LINK_ROOT}" && pwd -P)"
+fi
 
 if ! check_source_links "${SOURCE}"; then
   exit 1
