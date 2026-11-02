@@ -311,8 +311,8 @@ worker with your decision, and it keeps everything it already read.
 **Critique is adversarial and multi-model.** `/critique` runs one critic per roster entry. A
 Claude model runs as a `critique-worker` subagent, and Codex runs headless. The default roster is
 one of each, because two runtimes miss more different defects than two models of one runtime.
-A standalone run asks you for the roster and recommends that default, and `/implement` supplies
-the plan's.
+A standalone run uses that default without asking, unless your request names other models, and
+`/implement` supplies the plan's.
 
 **Each critic runs its vendor's recommended model, at an effort sized to the target.** A bare
 `claude` resolves to `opus`, an alias that follows the newest Opus. A bare `codex` resolves to the

@@ -92,19 +92,19 @@ fidelity lens in step 3 names them.
 
 ## Step 2 — Choose and resolve the roster
 
-Always ask, unless the caller already supplied a roster.
+**Never ask for the roster.** Run the default roster unless the user's request names another,
+such as "critique this with claude only" or "use opus and sonnet". A caller's roster wins the same
+way. Name the roster you ran in the ledger header, where the user can see it.
 
 A roster entry is `<runtime>[:<model>][@<effort>]`, and the runtime is `claude` or `codex`.
 Claude is the host, so a Claude entry runs as a `critique-worker` subagent, and its model is one
 of the `Agent` tool's aliases: `opus`, `sonnet`, `haiku`, or `fable`. A Codex entry runs headless,
-and it needs the `codex` binary. Check for it with `command -v codex`, and offer it only where
-that succeeds.
+and it needs the `codex` binary. Check for it with `command -v codex` before you spawn.
 
-**The default roster is one Claude critic and one Codex critic:** `claude, codex`. Recommend it
-whenever `codex` is present. Two runtimes miss more different defects than two models of one
-runtime. Two critics also give the agreement signal, so the run needs no refutation pass. Where
-`codex` is absent, fall back to the Claude critic alone, and say that the refutation pass then
-stands in for agreement.
+**The default roster is one Claude critic and one Codex critic:** `claude, codex`. Two runtimes miss
+more different defects than two models of one runtime. Two critics also give the agreement signal,
+so the run needs no refutation pass. Where `codex` is absent, fall back to the Claude critic alone,
+and say in the ledger header that the refutation pass then stands in for agreement.
 
 ### Resolve each entry to a model and an effort
 
@@ -146,32 +146,12 @@ findings comparable. `max` runs only when the user names it, as `@max`.
 other. A Codex model whose `supported_reasoning_levels` lacks that effort gets the highest level it
 lists below it.
 
-> **Deciding — the critique roster**
->
-> - **Found:** claude (host) resolves to `opus`, the newest Opus; codex resolves to `<model>`, first
->   in Codex's model list (or: codex absent)
-> - **Effort:** `<level>`, because <the table row that chose it>
-> - **Decision:** each model misses different defects, and only you know the budget
-> - **Default, `claude:opus@<level>, codex:<model>@<level>`:** one critic per runtime, and
->   cross-model agreement
-> - **One, `claude:opus@<level>` alone:** cheaper, and a refutation pass stands in for agreement
-> - **More, a second Claude model:** more coverage, at one more critic's cost
->
-> Which models should critique this? I recommend `claude:opus@<level>, codex:<model>@<level>`,
-> because one critic per runtime finds the widest spread of defects for two critics' cost.
->
-> ⏸ waiting on you: name the models for this critique
-
-This `Deciding` offers options, so where the host has an interactive question tool, ask through
-it, per `rules/chat-vocabulary.md`'s **Which surface carries a question**. The shape above is the
-fallback in prose.
-
 Each model misses different defects, which is the point. Independent critics find more defects
 than one critic that you run repeatedly. A Claude model beside a Codex model is more independent
 than two Claude models.
 
 When `/plan` or `/implement` calls this skill, it already chose the roster. Resolve any entry it
-left bare, use the result, and do not ask again.
+left bare, and use the result.
 
 **One roster serves a whole run.** `/implement` resolves the models once, at its roster gate, and
 passes them to every milestone critique and to the integration pass. Two milestones critiqued by
