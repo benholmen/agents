@@ -324,7 +324,10 @@ older one at a higher effort. `/implement` resolves the models once per run, so 
 findings come from the same models. Every ledger names the model and effort each critic actually
 ran, read from that critic's own record.
 
-Each critic tries to break the target rather than survey it. Cross-model agreement is evidence that
+Each critic tries to break the target rather than survey it. It also pushes back on complexity:
+convoluted code, machinery for a problem nobody has or a case no caller reaches, a hand-written
+copy of an installed package or of the framework, and departures from convention. Each such
+finding names the simpler code that replaces it. Cross-model agreement is evidence that
 a defect is real, because two models rarely invent one defect. One model gives no such evidence, so
 a refutation pass takes its place and drops what it refutes. Agreement raises confidence, and it
 drops nothing. Every merged finding reaches the filter, whether one critic found it or every critic

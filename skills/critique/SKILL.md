@@ -176,9 +176,38 @@ resolves. The integration set serves `--integration` alone. Run one set, never b
 | **Correctness** | always | Where does this produce a wrong result? Give concrete inputs and the wrong output. |
 | **Edge cases** | always | Empty, null, concurrent, oversized, malformed. What does the code not handle? Which error path has no test? |
 | **Security** | the target touches auth, input handling, secrets, permissions, or shells out | What is exploitable? |
+| **Simplicity** | always | Is this the most direct, idiomatic way to meet the need? What is convoluted, built for a problem nobody has or a case no caller reaches, a hand-written copy of an installed package or of the framework, or a departure from the conventions of the language, the framework, or the repository? Name the simpler code. |
 
-Correctness, edge cases, and security read a draft plan as readily as a diff. A plan that
-specifies a wrong result carries a correctness defect.
+Correctness, edge cases, security, and simplicity read a draft plan as readily as a diff. A plan
+that specifies a wrong result carries a correctness defect. A plan that designs machinery for a
+problem nobody has carries a simplicity defect.
+
+### The simplicity lens
+
+Push back on every unnecessary invention. Readable, direct, conventional code is the bar, and the
+target must clear it rather than the critic argue for it. Copy these rules into the brief with the
+lens, because a Codex critic loads no rules.
+
+- **Name the replacement.** The fix states the simpler code concretely: the installed package, the
+  framework feature, the repository file that sets the convention, or deletion. A finding that
+  names no replacement is not a finding.
+- **Verify the replacement exists.** The package appears in the lockfile, the framework version in
+  use ships the feature, and the convention appears elsewhere in the repository. Cite where.
+- **State the cost in `failure`.** Say what the extra code costs a reader or a maintainer, or what
+  the hand-written copy misses that the standard one handles.
+- **Edge cases and simplicity pull against each other, and the caller decides.** Every finding on
+  either lens names the caller or the input it rests on. Code for an input a real caller sends
+  belongs to edge cases. Code for an input no caller sends, or for one too rare to matter, is a
+  simplicity defect.
+- **Judge only what the target adds or changes.** Leave untouched code alone.
+- **Never flag what is expensive to retrofit.** A security boundary, a data model, a published
+  contract, and a storage format belong in the design now, per `rules/yagni.md`.
+- **A structure the approved plan names is the plan's decision.** Raise it when the target is the
+  plan, not against the diff that carries it out.
+
+Rate a simplicity finding `risk` where the extra code can fail on its own, or must stay in step
+with something else, as a hand-written copy of a package does. Rate it `nit` where only the reading
+suffers. A complexity that also gives a wrong result is a correctness finding.
 
 **Plan fidelity drops silently only when the caller offered no `--plan`.** A standalone
 `/critique src/foo.php` has nothing to check fidelity against. When a caller offered `--plan` and
