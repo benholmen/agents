@@ -24,6 +24,7 @@ One run installs both runtimes.
 | `~/.agents/skills/<name>/` | the same skills — **linked per skill** | Codex |
 | `~/.agents/references` | the same adapters — whole directory, **never pruned** | Codex |
 | `~/.codex/AGENTS.md` | every rule concatenated — **generated** | Codex |
+| `~/Library/LaunchAgents/com.<you>.wt-prune.plist` | runs `wt-prune.sh --unattended` once a day — **rendered and loaded, macOS only** | both |
 
 The script links one entry at a time, so each destination directory stays a real one you own.
 It leaves anything else you keep there alone. Nothing you create locally reaches this repository.
@@ -33,11 +34,35 @@ every link that has a counterpart here, and it prunes every per-entry link into 
 checkout that has none. The other checkout's git hooks still regenerate `~/.codex/AGENTS.md` when
 you commit or check out there. Remove those hooks, or that checkout.
 
-**`~/.codex/AGENTS.md` is the one file this repository generates whole rather than links.** Codex reads
+**`~/.codex/AGENTS.md` is one of two files this repository generates whole rather than links.** Codex reads
 its instructions from a single file and resolves no includes, so a directory of rules cannot
 reach it any other way. A file you wrote yourself is backed up before the first generation. Git
 hooks regenerate it after a commit, a checkout, and a merge, so a rule edit you commit reaches
 Codex without a re-run. `./scripts/install.sh --rules-only` does that regeneration alone.
+
+**The LaunchAgent is the other generated file.** launchd needs absolute paths, so the install
+renders `scripts/launchd/wt-prune.plist` with your home directory and loads it. It runs
+`wt-prune.sh --unattended` from `~/repos` at 12:30 every day, and a run missed while the Mac
+sleeps fires on wake. It sets its own `PATH`, because launchd's default one finds neither `gh`
+nor `docker`. The install skips it where `~/repos` is missing, and a re-run reloads it only when
+the rendered file changed.
+
+An unattended run never prompts. It removes only what a run from a terminal removes without
+asking, and it holds even that back when it cannot finish the job: it removes nothing while
+Docker is unreachable, nothing from a repository it could not fetch, no worktree whose Compose
+project has a running container, and it keeps a folder whose Docker resources would not all go.
+In every mode, a worktree whose folder is already gone is removed without asking only when its
+branch holds no commit missing from the remote. Otherwise it asks, and `a` saves those commits
+as a verified git bundle. A failed pull request lookup falls back to the age
+rule, as it does by hand. Each run appends to `~/Library/Logs/wt-prune.log`, which it trims
+once it passes 1 MB, and each run ends with what it removed, what it held back, what needs your
+answer, and the command that asks you. A lock keeps a scheduled run and one you start from
+overlapping, so the second one stops. To see the last run:
+
+```bash
+launchctl print "gui/$(id -u)/com.$(id -un).wt-prune" | grep -E 'runs|last exit'
+tail -n 40 ~/Library/Logs/wt-prune.log
+```
 
 **Codex has no `disable-model-invocation`.** On Claude, the model cannot invoke `/bare-convert`.
 On Codex it can invoke it itself. It still gates on your approval before anything moves, so the
@@ -72,8 +97,9 @@ agent — whose source is gone. It never prunes the direct links: `references/` 
 ```
 
 It removes every link that resolves into this checkout, the `~/.codex/AGENTS.md` this checkout
-generated, and the git hooks the install wrote. It leaves everything else alone: your own files,
-links into another checkout, `~/.claude/backups/`, and the run state in `~/repos/.agents/work`.
+generated, the git hooks the install wrote, and the wt-prune LaunchAgent, which it unloads first.
+It leaves everything else alone: your own files, links into another checkout,
+`~/.claude/backups/`, the run state in `~/repos/.agents/work`, and the pruner's log.
 
 ### Requirements
 

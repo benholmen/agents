@@ -15,14 +15,16 @@ runtimes:
 
   every link in ~/.claude/rules, ~/.claude/skills, ~/.claude/agents, and
   ~/.agents/skills that resolves into this repository
-  ~/.claude/references, ~/.agents/references, and the two links in
+  ~/.claude/references, ~/.agents/references, and the three links in
   ~/.claude/bin, when they resolve into this repository
+  the wt-prune LaunchAgent, which it unloads, and its plist in
+  ~/Library/LaunchAgents
   ~/.codex/AGENTS.md, when this repository's installer generated it
   the git hooks the installer wrote into this repository
 
 It touches nothing else. Your own files, links into another checkout, the
-backups the installer made in ~/.claude/backups, and the run state in
-~/repos/.agents/work all stay.
+backups the installer made in ~/.claude/backups, the run state in
+~/repos/.agents/work, and the pruner's log in ~/Library/Logs all stay.
 
 Override the repo root with AGENTS_REPO=/path/to/agents.
 USAGE
@@ -83,6 +85,21 @@ remove_git_hooks() {
   done
 }
 
+remove_launch_agent() {
+  local label dest
+  label="com.$(id -un).wt-prune"
+  dest="${HOME}/Library/LaunchAgents/${label}.plist"
+  if command -v launchctl >/dev/null 2>&1 \
+     && launchctl print "gui/$(id -u)/${label}" >/dev/null 2>&1; then
+    launchctl bootout "gui/$(id -u)/${label}" 2>/dev/null || true
+    echo "  unloaded: ${label}"
+  fi
+  if [[ -f "${dest}" ]] && grep -qF "/.claude/bin/wt-prune.sh" "${dest}"; then
+    rm -f "${dest}"
+    echo "  removed: ${dest#"${HOME}/"}"
+  fi
+}
+
 echo "Uninstalling for Claude..."
 unlink_entries "${DEST}/rules"
 unlink_entries "${DEST}/skills"
@@ -91,6 +108,7 @@ unlink_if_ours "${DEST}/references"
 unlink_if_ours "${DEST}/bin/wt-clone.sh"
 unlink_if_ours "${DEST}/bin/wt-prune.sh"
 unlink_if_ours "${DEST}/bin/deny-git-writes.sh"
+remove_launch_agent
 
 echo "Uninstalling for Codex..."
 unlink_entries "${AGENTS_DEST}/skills"

@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'USAGE'
-Usage: wt-prune.sh [--dry-run] [--days N] [container ...]
+Usage: wt-prune.sh [--dry-run] [--unattended] [--log FILE] [--days N] [container ...]
 
 Removes outdated worktrees from bare-plus-worktrees repositories, along
 with every Docker resource each one created: containers, volumes,
@@ -25,11 +25,17 @@ docker-compose.worktree.yml, and no commit missing from the remote or
 from its pull request. A review checkout, a detached worktree named for
 its pull request such as review-pr-1234, only counts commits you made.
 
+A worktree whose folder is already gone is removed without asking,
+unless its branch holds commits missing from the remote and from its
+pull request. Then you choose, as for a stale one.
+
 A stale worktree that would lose work is shown with its changes, and you
 choose for each one:
 
   d  delete it
-  a  save the work to ~/repos/.agents/work/archive/worktrees, then delete it
+  a  save the work to ~/repos/.agents/work/archive/worktrees, then delete it;
+     with the folder gone, it saves the branch's unpushed commits as a
+     verified git bundle
   k  keep it
   v  view the changes
   q  keep this one and every one after it
@@ -46,8 +52,29 @@ folder, is shown for you to choose.
 Without a terminal it removes only what needs no answer, and it keeps
 the rest. It prints what it freed when it finishes.
 
+--unattended is for a scheduled run. It never prompts, even from a
+terminal, and it holds back some of what needs no answer:
+
+  Docker unreachable    it removes nothing, because it cannot tell which
+                        Compose projects a worktree owns
+  a fetch fails         it removes nothing from that repository, because
+                        its remote branches may be out of date
+  containers running    it keeps a worktree whose Compose project still
+                        has a running container
+  Docker cleanup fails  it keeps that worktree's folder and branch, so
+                        the next run can finish the job
+
+It ends with what it removed, what it held back, what needs your
+answer, and the command that asks you.
+
+One run goes at a time. While a run holds ~/.cache/wt-prune.lock, a
+second run stops at once.
+
 Options:
   -n, --dry-run   show what would happen, and change nothing
+  --unattended    never prompt, and hold back as described above
+  --log FILE      append all output to FILE, and trim FILE to its last
+                  512 kB once it passes 1 MB
   --days N        days without activity before a worktree is stale
   -h, --help      show this help
 
@@ -57,6 +84,8 @@ USAGE
 }
 
 DRY_RUN=0
+UNATTENDED=0
+LOG_FILE=""
 DAYS=30
 ARGS=()
 
@@ -64,6 +93,22 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     -h | --help) usage; exit 0 ;;
     -n | --dry-run) DRY_RUN=1 ;;
+    --unattended) UNATTENDED=1 ;;
+    --log)
+      if [[ $# -lt 2 || -z "$2" ]]; then
+        echo "error: --log takes a file" >&2
+        exit 2
+      fi
+      LOG_FILE="$2"
+      shift
+      ;;
+    --log=*)
+      LOG_FILE="${1#--log=}"
+      if [[ -z "${LOG_FILE}" ]]; then
+        echo "error: --log takes a file" >&2
+        exit 2
+      fi
+      ;;
     --days)
       if [[ $# -lt 2 || ! "$2" =~ ^[0-9]+$ ]]; then
         echo "error: --days takes a whole number" >&2
@@ -81,7 +126,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     -*)
       echo "error: unknown option: $1" >&2
-      echo "usage: wt-prune.sh [--dry-run] [--days N] [container ...]" >&2
+      echo "usage: wt-prune.sh [--dry-run] [--unattended] [--log FILE] [--days N] [container ...]" >&2
       exit 2
       ;;
     *) ARGS+=("$1") ;;
@@ -93,10 +138,47 @@ GENERATED_PATHS="docker-compose.worktree.yml"
 ARCHIVE_ROOT="${HOME}/repos/.agents/work/archive/worktrees"
 NOW="$(date +%s)"
 HERE="$(pwd -P)"
+SELF="$(cd "$(dirname "$0")" && pwd -P)/$(basename "$0")"
+LOCK="${HOME}/.cache/wt-prune.lock"
+LOG_LIMIT=1048576
+LOG_KEEP=524288
+
+if [[ -n "${LOG_FILE}" ]]; then
+  mkdir -p "$(dirname "${LOG_FILE}")"
+  exec >>"${LOG_FILE}" 2>&1
+fi
+
+mkdir -p "$(dirname "${LOCK}")"
+if ! mkdir "${LOCK}" 2>/dev/null; then
+  holder="$(cat "${LOCK}/pid" 2>/dev/null || true)"
+  if [[ -z "${holder}" ]] || ps -p "${holder}" -o command= 2>/dev/null | grep -q wt-prune; then
+    echo "wt-prune: $(date '+%Y-%m-%d %H:%M') another run${holder:+ (pid ${holder})} holds ${LOCK}, so this one stops" >&2
+    exit 1
+  fi
+  rm -rf "${LOCK}"
+  if ! mkdir "${LOCK}" 2>/dev/null; then
+    echo "wt-prune: $(date '+%Y-%m-%d %H:%M') another run holds ${LOCK}, so this one stops" >&2
+    exit 1
+  fi
+fi
+trap 'rm -rf "${LOCK}"' EXIT
+echo "$$" >"${LOCK}/pid"
+
+if [[ -n "${LOG_FILE}" && "$(wc -c <"${LOG_FILE}" | tr -d ' ')" -gt "${LOG_LIMIT}" ]]; then
+  tail -c "${LOG_KEEP}" "${LOG_FILE}" | sed 1d >"${LOG_FILE}.trim"
+  cat "${LOG_FILE}.trim" >"${LOG_FILE}"
+  rm -f "${LOG_FILE}.trim"
+fi
+
+if [[ "${UNATTENDED}" -eq 1 ]]; then
+  export GIT_TERMINAL_PROMPT=0
+  echo ""
+  echo "==== wt-prune --unattended, $(date '+%Y-%m-%d %H:%M'), in ${HERE}"
+fi
 
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/wt-prune.XXXXXX")"
-trap 'rm -rf "${TMP}"' EXIT
-trap 'rm -rf "${TMP}"; exit 130' INT TERM
+trap 'rm -rf "${TMP}" "${LOCK}"' EXIT
+trap 'rm -rf "${TMP}" "${LOCK}"; exit 130' INT TERM
 
 is_container() {
   [[ -d "$1/.git" ]] \
@@ -137,7 +219,7 @@ if [[ ${#CONTAINERS[@]} -eq 0 ]]; then
   exit 1
 fi
 
-if { : </dev/tty; } 2>/dev/null; then
+if [[ "${UNATTENDED}" -eq 0 ]] && { : </dev/tty; } 2>/dev/null; then
   INTERACTIVE=1
 else
   INTERACTIVE=0
@@ -269,13 +351,13 @@ remove_project() {
   nets="$(awk -F'\t' -v p="${p}" '$2 == p { print $1 }' "${TMP}/networks.tsv")"
   imgs="$(project_images "${p}")"
   if [[ -n "${ids}" ]]; then
-    docker rm -f ${ids} >/dev/null 2>&1 || echo "  warning: some containers of ${p} were not removed"
+    docker rm -f ${ids} >/dev/null 2>&1 || { echo "  warning: some containers of ${p} were not removed"; PROJECT_FAILED=1; }
   fi
   if [[ -n "${vols}" ]]; then
-    docker volume rm -f ${vols} >/dev/null 2>&1 || echo "  warning: some volumes of ${p} were not removed"
+    docker volume rm -f ${vols} >/dev/null 2>&1 || { echo "  warning: some volumes of ${p} were not removed"; PROJECT_FAILED=1; }
   fi
   if [[ -n "${nets}" ]]; then
-    docker network rm ${nets} >/dev/null 2>&1 || echo "  warning: some networks of ${p} were not removed"
+    docker network rm ${nets} >/dev/null 2>&1 || { echo "  warning: some networks of ${p} were not removed"; PROJECT_FAILED=1; }
   fi
   if [[ -n "${imgs}" ]]; then
     docker image rm ${imgs} >/dev/null 2>&1 || echo "  warning: some images of ${p} are still in use, and stay"
@@ -399,6 +481,14 @@ unpushed_args() {
   fi
 }
 
+gone_args() {
+  local gd="$1" branch="$2" pr_head="$3"
+  GONE_ARGS=("refs/heads/${branch}" --not --remotes)
+  if [[ "${pr_head}" != "-" ]] && git --git-dir="${gd}" cat-file -e "${pr_head}^{commit}" 2>/dev/null; then
+    GONE_ARGS+=("${pr_head}")
+  fi
+}
+
 DISK_BEFORE="$(df -k "${CONTAINERS[0]}" | awk 'NR == 2 { print $4 }')"
 docker_totals >"${TMP}/docker-before.tsv"
 load_docker
@@ -409,8 +499,11 @@ for container in "${CONTAINERS[@]}"; do
   gd="${container}/.git"
   repo="$(basename "${container}")"
   echo "wt-prune: checking ${repo}"
-  git --git-dir="${gd}" fetch --prune --quiet origin </dev/null 2>/dev/null \
-    || echo "wt-prune: warning: could not fetch ${repo}, so remote branches may be out of date"
+  fetched=1
+  if ! git --git-dir="${gd}" fetch --prune --quiet origin </dev/null 2>/dev/null; then
+    echo "wt-prune: warning: could not fetch ${repo}, so remote branches may be out of date"
+    fetched=0
+  fi
   default="$(git --git-dir="${gd}" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##' || true)"
   IFS=$'\t' read -r kind slug <<<"$(remote_of "$(git --git-dir="${gd}" remote get-url origin 2>/dev/null || true)")"
 
@@ -442,6 +535,18 @@ for container in "${CONTAINERS[@]}"; do
     if [[ "${prunable}" -eq 1 || ! -d "${wt}" ]]; then
       action=delete
       reason="folder already gone"
+      if [[ "${branch}" != "-" ]] && git --git-dir="${gd}" show-ref --verify --quiet "refs/heads/${branch}"; then
+        lookup_pr "${kind}" "${slug}" "${name}" "${branch}"
+        gone_args "${gd}" "${branch}" "${PR_HEAD}"
+        if ! unpushed="$(git --git-dir="${gd}" rev-list --count "${GONE_ARGS[@]}" 2>/dev/null)"; then
+          action=ask
+          reason="folder already gone, could not count its commits not on the remote"
+          unpushed=0
+        elif [[ "${unpushed}" -gt 0 ]]; then
+          action=ask
+          reason="folder already gone, $(plural "${unpushed}" commit) not on the remote"
+        fi
+      fi
     elif [[ "${wt}" == "${container}/main" ]]; then
       reason="stable worktree"
     elif [[ "${locked}" -eq 1 ]]; then
@@ -487,7 +592,24 @@ for container in "${CONTAINERS[@]}"; do
       fi
     fi
 
+    if [[ "${UNATTENDED}" -eq 1 && "${action}" == "delete" ]]; then
+      if [[ "${DOCKER}" -eq 0 ]]; then
+        action=hold
+        reason="${reason}, held back: Docker is unreachable"
+      elif [[ "${fetched}" -eq 0 ]]; then
+        action=hold
+        reason="${reason}, held back: could not fetch"
+      fi
+    fi
+
     projects="$(worktree_projects "${wt}" "${name}" "${repo}")"
+    if [[ "${UNATTENDED}" -eq 1 && "${action}" == "delete" && -n "${projects}" ]]; then
+      running="$(awk -F'\t' -v l=",${projects}," 'index(l, "," $1 ",") > 0 && $3 == "running"' "${TMP}/containers.tsv" | wc -l | tr -d ' ')"
+      if [[ "${running}" -gt 0 ]]; then
+        action=hold
+        reason="${reason}, held back: $(plural "${running}" container) running"
+      fi
+    fi
     printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
       "${container}" "${repo}" "${wt}" "${name}" "${branch}" "${head}" "${action}" "${reason}" \
       "${PR_NUM}" "${PR_STATE}" "${age}" "${dirty}" "${unpushed}" "${projects:--}" "${PR_HEAD}" >>"${TMP}/worktrees.tsv"
@@ -496,7 +618,7 @@ done
 
 awk -F'\t' '{ n = split($14, p, ","); for (i = 1; i <= n; i++) if (p[i] != "-") print p[i] }' \
   "${TMP}/worktrees.tsv" | sort -u >"${TMP}/attributed"
-awk -F'\t' '$7 == "keep" { n = split($14, p, ","); for (i = 1; i <= n; i++) if (p[i] != "-") print p[i] }' \
+awk -F'\t' '$7 == "keep" || $7 == "hold" { n = split($14, p, ","); for (i = 1; i <= n; i++) if (p[i] != "-") print p[i] }' \
   "${TMP}/worktrees.tsv" | sort -u >"${TMP}/protected"
 
 : >"${TMP}/living"
@@ -554,8 +676,57 @@ if [[ -s "${TMP}/orphans.tsv" ]]; then
 fi
 echo ""
 
+manual_command() {
+  local cmd c
+  cmd="cd $(printf '%q' "${HERE}") && $(printf '%q' "${SELF}")"
+  if [[ "${DAYS}" -ne 30 ]]; then
+    cmd="${cmd} --days ${DAYS}"
+  fi
+  if [[ ${#ARGS[@]} -gt 0 ]]; then
+    for c in "${CONTAINERS[@]}"; do
+      cmd="${cmd} $(printf '%q' "${c}")"
+    done
+  fi
+  echo "${cmd}"
+}
+
+unattended_report() {
+  local title="$1" removed="$2" held asks
+  echo ""
+  echo "${title}"
+  if [[ -s "${removed}" ]]; then
+    sed 's/^/  /' "${removed}"
+  else
+    echo "  nothing"
+  fi
+  held="$(awk -F'\t' '$7 == "hold" { printf "  %s/%s  %s\n", $2, $4, $8 }' "${TMP}/worktrees.tsv")"
+  if [[ -n "${held}" ]]; then
+    echo "Held back until a later run"
+    printf '%s\n' "${held}"
+  fi
+  echo "Needs your answer"
+  asks="$(
+    awk -F'\t' '$7 == "ask" { printf "  %s/%s  %s\n", $2, $4, $8 }' "${TMP}/worktrees.tsv"
+    awk -F'\t' '$2 == "ask" { printf "  Compose project %s  %s\n", $1, $3 }' "${TMP}/orphans.tsv"
+  )"
+  if [[ -n "${asks}" ]]; then
+    printf '%s\n' "${asks}"
+  else
+    echo "  nothing"
+  fi
+  echo "To decide in a terminal, run:"
+  echo "  $(manual_command)"
+}
+
 if [[ "${DRY_RUN}" -eq 1 ]]; then
   echo "wt-prune: dry run, nothing was changed"
+  if [[ "${UNATTENDED}" -eq 1 ]]; then
+    {
+      awk -F'\t' '$7 == "delete" { print $2 "/" $4 }' "${TMP}/worktrees.tsv"
+      awk -F'\t' '$2 == "delete" { print "Compose project " $1 }' "${TMP}/orphans.tsv"
+    } >"${TMP}/would-remove"
+    unattended_report "Would remove" "${TMP}/would-remove"
+  fi
   exit 0
 fi
 
@@ -565,8 +736,10 @@ ARCHIVED=0
 KEPT_ASKED=0
 UNANSWERED=0
 ORPHANS_REMOVED=0
+PROJECT_FAILED=0
 FOLDER_KB=0
 : >"${TMP}/failed"
+: >"${TMP}/removed"
 
 remove_projects() {
   local list="$1" p
@@ -578,6 +751,23 @@ remove_projects() {
       remove_project "${p}"
     fi
   done
+}
+
+remove_entry() {
+  local gd="$1" wt="$2" admin found=() n
+  for admin in "${gd}"/worktrees/*/; do
+    admin="${admin%/}"
+    [[ -f "${admin}/gitdir" ]] || continue
+    if [[ "$(cat "${admin}/gitdir")" == "${wt}/.git" ]]; then
+      found+=("${admin}")
+    fi
+  done
+  n=${#found[@]}
+  if [[ "${n}" -ne 1 ]]; then
+    echo "$(plural "${n}" "worktree entry" "worktree entries") in ${gd}/worktrees point at it" >"${TMP}/remove.err"
+    return 1
+  fi
+  rm -rf -- "${found[0]}"
 }
 
 remove_folder() {
@@ -595,17 +785,23 @@ remove_folder() {
     fi
     sleep 2
   done
-  git --git-dir="${container}/.git" worktree prune
-  [[ ! -e "${wt}" ]]
+  [[ ! -e "${wt}" ]] || return 1
+  remove_entry "${container}/.git" "${wt}"
 }
 
 delete_worktree() {
-  local container="$1" wt="$2" branch="$3" projects="$4" kb
+  local container="$1" wt="$2" branch="$3" projects="$4" kb=0
   if [[ -d "${wt}" ]]; then
     kb="$(du -sk "${wt}" 2>/dev/null | cut -f1 || echo 0)"
-    FOLDER_KB=$((FOLDER_KB + ${kb:-0}))
   fi
+  PROJECT_FAILED=0
   remove_projects "${projects}"
+  if [[ "${UNATTENDED}" -eq 1 && "${PROJECT_FAILED}" -eq 1 ]]; then
+    echo "  kept ${wt}, because some of its Docker resources remain"
+    echo "${wt}" >>"${TMP}/failed"
+    return 1
+  fi
+  FOLDER_KB=$((FOLDER_KB + ${kb:-0}))
   if [[ -d "${wt}" ]]; then
     if ! remove_folder "${container}" "${wt}"; then
       echo "  could not remove ${wt}: $(tail -1 "${TMP}/remove.err" 2>/dev/null)"
@@ -614,7 +810,11 @@ delete_worktree() {
     fi
   else
     # git refuses to delete a branch that a missing worktree still holds.
-    git --git-dir="${container}/.git" worktree prune
+    if ! remove_entry "${container}/.git" "${wt}"; then
+      echo "  could not remove the entry for ${wt}: $(tail -1 "${TMP}/remove.err" 2>/dev/null)"
+      echo "${wt}" >>"${TMP}/failed"
+      return 1
+    fi
   fi
   if [[ "${branch}" != "-" ]]; then
     git --git-dir="${container}/.git" branch -D "${branch}" >/dev/null 2>&1 || true
@@ -647,6 +847,53 @@ archive_worktree() {
     fi
   fi
   echo "  saved to ${dest}"
+}
+
+archive_gone_worktree() {
+  local repo="$1" container="$2" wt="$3" branch="$4" head="$5" pr="$6" gd="${container}/.git" dest
+  dest="${ARCHIVE_ROOT}/${repo}-$(basename "${wt}")-$(date +%Y-%m-%dt%H%M)"
+  mkdir -p "${dest}" || return 1
+  {
+    echo "worktree  ${wt} (folder already gone)"
+    echo "branch    ${branch}"
+    echo "head      ${head}"
+    echo "pr        ${pr}"
+    echo "archived  $(date '+%Y-%m-%d %H:%M')"
+    echo "restore   git fetch ${dest}/commits.bundle ${branch}:${branch}, in a clone of the remote"
+  } >"${dest}/info.txt"
+  git --git-dir="${gd}" bundle create "${dest}/commits.bundle" "refs/heads/${branch}" --not --remotes >/dev/null 2>&1 || return 1
+  if ! git --git-dir="${gd}" bundle verify "${dest}/commits.bundle" >/dev/null 2>&1; then
+    echo "  the bundle in ${dest} did not verify"
+    return 1
+  fi
+  echo "  saved to ${dest}"
+}
+
+show_gone_worktree() {
+  local gd="$1" wt="$2" branch="$3" reason="$4" projects="$5" pr_head="$6" p lines total
+  echo "  folder    ${wt} (already gone)"
+  echo "  branch    ${branch}"
+  echo "  why       ${reason}"
+  if [[ "${DOCKER}" -eq 1 && "${projects}" != "-" ]]; then
+    for p in ${projects//,/ }; do
+      echo "  docker    $(project_summary "${p}")"
+    done
+  fi
+  gone_args "${gd}" "${branch}" "${pr_head}"
+  lines="$(git --git-dir="${gd}" log --format='%h %cr  %s' "${GONE_ARGS[@]}" 2>/dev/null || true)"
+  if [[ -n "${lines}" ]]; then
+    total="$(printf '%s\n' "${lines}" | wc -l | tr -d ' ')"
+    echo "  commits not on the remote (${total}):"
+    printf '%s\n' "${lines}" | head -10 | sed 's/^/    /'
+    [[ "${total}" -gt 10 ]] && echo "    ... and $((total - 10)) more"
+  fi
+  return 0
+}
+
+view_gone_worktree() {
+  local gd="$1" branch="$2" pr_head="$3"
+  gone_args "${gd}" "${branch}" "${pr_head}"
+  git --git-dir="${gd}" -c color.ui=always log --stat "${GONE_ARGS[@]}" 2>/dev/null | ${PAGER:-less -R} >/dev/tty
 }
 
 show_worktree() {
@@ -694,6 +941,7 @@ while IFS=$'\t' read -r container repo wt name branch head action reason pr_num 
   echo "  ${repo}/${name}"
   if delete_worktree "${container}" "${wt}" "${branch}" "${projects}"; then
     REMOVED_AUTO=$((REMOVED_AUTO + 1))
+    echo "${repo}/${name}" >>"${TMP}/removed"
   fi
 done 3<"${TMP}/worktrees.tsv"
 while IFS=$'\t' read -r p action reason <&3; do
@@ -701,6 +949,7 @@ while IFS=$'\t' read -r p action reason <&3; do
   echo "  Compose project ${p}"
   remove_project "${p}"
   ORPHANS_REMOVED=$((ORPHANS_REMOVED + 1))
+  echo "Compose project ${p}" >>"${TMP}/removed"
 done 3<"${TMP}/orphans.tsv"
 
 ASK_TOTAL="$(awk -F'\t' '$7 == "ask"' "${TMP}/worktrees.tsv" | wc -l | tr -d ' ')"
@@ -709,7 +958,12 @@ QUIT=0
 
 if [[ $((ASK_TOTAL + ASK_ORPHANS)) -gt 0 && "${INTERACTIVE}" -eq 0 ]]; then
   echo ""
-  echo "wt-prune: no terminal, so $(plural $((ASK_TOTAL + ASK_ORPHANS)) item) that need an answer stay"
+  if [[ "${UNATTENDED}" -eq 1 ]]; then
+    why=unattended
+  else
+    why="no terminal"
+  fi
+  echo "wt-prune: ${why}, so $(plural $((ASK_TOTAL + ASK_ORPHANS)) item) that need an answer stay"
   QUIT=1
 fi
 
@@ -727,7 +981,11 @@ while IFS=$'\t' read -r container repo wt name branch head action reason pr_num 
   fi
   echo ""
   echo "[${index}/${ASK_TOTAL}] ${repo}/${name}"
-  show_worktree "${wt}" "${branch}" "${reason}" "${projects}" "${review}" "${pr_head}"
+  if [[ -d "${wt}" ]]; then
+    show_worktree "${wt}" "${branch}" "${reason}" "${projects}" "${review}" "${pr_head}"
+  else
+    show_gone_worktree "${container}/.git" "${wt}" "${branch}" "${reason}" "${projects}" "${pr_head}"
+  fi
   while true; do
     printf '  [d]elete  [a]rchive, then delete  [k]eep  [v]iew changes  [q]uit: '
     read -r choice </dev/tty || choice=q
@@ -740,7 +998,12 @@ while IFS=$'\t' read -r container repo wt name branch head action reason pr_num 
         break
         ;;
       a)
-        if ! archive_worktree "${repo}" "${wt}" "${branch}" "${head}" "${pr_num}" "${review}" "${pr_head}"; then
+        if [[ -d "${wt}" ]]; then
+          archiver=(archive_worktree "${repo}" "${wt}" "${branch}" "${head}" "${pr_num}" "${review}" "${pr_head}")
+        else
+          archiver=(archive_gone_worktree "${repo}" "${container}" "${wt}" "${branch}" "${head}" "${pr_num}")
+        fi
+        if ! "${archiver[@]}"; then
           echo "  could not save the work, so the worktree stays"
           echo "${wt}" >>"${TMP}/failed"
         elif delete_worktree "${container}" "${wt}" "${branch}" "${projects}"; then
@@ -754,7 +1017,13 @@ while IFS=$'\t' read -r container repo wt name branch head action reason pr_num 
         KEPT_ASKED=$((KEPT_ASKED + 1))
         break
         ;;
-      v) view_worktree "${wt}" "${review}" "${pr_head}" ;;
+      v)
+        if [[ -d "${wt}" ]]; then
+          view_worktree "${wt}" "${review}" "${pr_head}"
+        else
+          view_gone_worktree "${container}/.git" "${branch}" "${pr_head}"
+        fi
+        ;;
       q)
         KEPT_ASKED=$((KEPT_ASKED + 1))
         QUIT=1
@@ -795,10 +1064,6 @@ while IFS=$'\t' read -r p action reason <&3; do
   done
 done 3<"${TMP}/orphans.tsv"
 
-for container in "${CONTAINERS[@]}"; do
-  git --git-dir="${container}/.git" worktree prune
-done
-
 DISK_AFTER="$(df -k "${CONTAINERS[0]}" | awk 'NR == 2 { print $4 }')"
 docker_totals >"${TMP}/docker-after.tsv"
 KEPT_ACTIVE="$(awk -F'\t' '$7 == "keep" && $8 != "stable worktree"' "${TMP}/worktrees.tsv" | wc -l | tr -d ' ')"
@@ -812,6 +1077,10 @@ if [[ "${ARCHIVED}" -gt 0 ]]; then
   printf '  archived  %s to %s\n' "$(plural "${ARCHIVED}" worktree)" "${ARCHIVE_ROOT}"
 fi
 printf '  kept      %s active, %s by your choice, %s unanswered\n' "${KEPT_ACTIVE}" "${KEPT_ASKED}" "${UNANSWERED}"
+HELD="$(awk -F'\t' '$7 == "hold"' "${TMP}/worktrees.tsv" | wc -l | tr -d ' ')"
+if [[ "${HELD}" -gt 0 ]]; then
+  printf '  held      %s safe to remove, until a later run\n' "$(plural "${HELD}" worktree)"
+fi
 if [[ -s "${TMP}/failed" ]]; then
   printf '  failed    %s, still on disk:\n' "$(plural "$(wc -l <"${TMP}/failed" | tr -d ' ')" worktree)"
   sed 's/^/              /' "${TMP}/failed"
@@ -824,4 +1093,7 @@ if [[ "${DOCKER}" -eq 1 ]]; then
     [[ "${type}" == "Build Cache" ]] && continue
     printf '  docker    %-14s %s freed\n' "${type}" "$(human "${freed}")"
   done
+fi
+if [[ "${UNATTENDED}" -eq 1 ]]; then
+  unattended_report "Removed" "${TMP}/removed"
 fi

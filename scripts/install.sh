@@ -43,14 +43,24 @@ you can call them without knowing where this repo lives:
   ~/.claude/bin/wt-prune.sh          -> scripts/wt-prune.sh
   ~/.claude/bin/deny-git-writes.sh   -> scripts/deny-git-writes.sh
 
+On macOS it also loads a LaunchAgent that runs the worktree pruner once a day,
+unattended, from ~/repos. Its log stays under 1 MB:
+
+  ~/Library/LaunchAgents/com.<you>.wt-prune.plist  = scripts/launchd/wt-prune.plist
+  ~/Library/Logs/wt-prune.log                      the pruner's log
+
+It skips the agent where ~/repos is missing. A re-run rewrites and reloads the
+agent only when its rendered file changed or it is not loaded.
+
 Re-run after adding or renaming a file. The per-entry links -- rules, skills,
 and agents -- are pruned once their source has gone, and so is a per-entry
 link into another checkout of this repository that has no counterpart here.
 Nothing else is touched. The direct links, references/ and the three in bin/,
 are not pruned, so renaming one of those sources leaves the old link dangling.
 
-A generated ~/.codex/AGENTS.md is the one file this repository writes rather
-than links, because Codex gives it no other shape. An existing file that we
+A generated ~/.codex/AGENTS.md is one of two files this repository writes
+rather than links, because Codex gives it no other shape. The LaunchAgent is
+the other, because launchd needs absolute paths in it. An existing file that we
 did not generate is backed up first. Git hooks in this repository regenerate
 it after a commit, checkout, or merge, so an edit you commit takes effect
 without a re-run. --rules-only does just that regeneration, and the hooks
@@ -242,6 +252,42 @@ HOOK
   echo "  installed git hooks in ${hooks}: post-commit, post-checkout, post-merge"
 }
 
+install_launch_agent() {
+  local label src dest domain rendered
+  label="com.$(id -un).wt-prune"
+  src="${REPO_ROOT}/scripts/launchd/wt-prune.plist"
+  dest="${HOME}/Library/LaunchAgents/${label}.plist"
+  domain="gui/$(id -u)"
+
+  if [[ "$(uname -s)" != "Darwin" ]] || ! command -v launchctl >/dev/null 2>&1; then
+    echo "  not macOS -- skipped the wt-prune LaunchAgent"
+    return 0
+  fi
+  if [[ ! -d "${HOME}/repos" ]]; then
+    echo "  no ~/repos -- skipped the wt-prune LaunchAgent"
+    return 0
+  fi
+
+  rendered="$(sed -e "s#@LABEL@#${label}#g" -e "s#@HOME@#${HOME}#g" "${src}")"
+  if [[ -f "${dest}" && "$(cat "${dest}")" == "${rendered}" ]] \
+     && launchctl print "${domain}/${label}" >/dev/null 2>&1; then
+    echo "  already loaded: Library/LaunchAgents/${label}.plist"
+    return 0
+  fi
+
+  mkdir -p "${HOME}/Library/LaunchAgents" "${HOME}/Library/Logs"
+  printf '%s\n' "${rendered}" > "${dest}"
+  if launchctl print "${domain}/${label}" >/dev/null 2>&1; then
+    launchctl bootout "${domain}/${label}" 2>/dev/null || true
+  fi
+  if launchctl bootstrap "${domain}" "${dest}"; then
+    echo "  loaded: Library/LaunchAgents/${label}.plist"
+  else
+    echo "  wrote Library/LaunchAgents/${label}.plist, but launchctl could not load it"
+    echo "  load it yourself: launchctl bootstrap ${domain} ${dest}"
+  fi
+}
+
 if [[ "${1:-}" == "--rules-only" ]]; then
   generate_codex_rules
   exit 0
@@ -263,6 +309,7 @@ mkdir -p "${DEST}/bin"
 link "${REPO_ROOT}/scripts/wt-clone.sh" "${DEST}/bin/wt-clone.sh"
 link "${REPO_ROOT}/scripts/wt-prune.sh" "${DEST}/bin/wt-prune.sh"
 link "${REPO_ROOT}/scripts/deny-git-writes.sh" "${DEST}/bin/deny-git-writes.sh"
+install_launch_agent
 
 echo "Installing for Codex..."
 mkdir -p "${AGENTS_DEST}"
