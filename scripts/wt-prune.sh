@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Braces make bash parse the whole file before running it; without them, an edit or git pull during a prompt runs whatever bytes sit at bash's old read position.
+{
 set -euo pipefail
 
 usage() {
@@ -409,6 +411,7 @@ lookup_pr() {
   PR_NUM="-"
   PR_STATE="NONE"
   PR_HEAD="-"
+  PR_URL="-"
   if [[ "${name}" =~ ${PR_RE} ]]; then
     num="${BASH_REMATCH[3]}"
   fi
@@ -416,29 +419,34 @@ lookup_pr() {
     github)
       has gh || { PR_STATE="UNKNOWN"; return 0; }
       if [[ -n "${num}" ]]; then
-        out="$(gh pr view "${num}" -R "${slug}" --json number,state,headRefOid \
-          -q '"\(.number) \(.state) \(.headRefOid)"' </dev/null 2>/dev/null)" || { PR_STATE="UNKNOWN"; return 0; }
+        out="$(gh pr view "${num}" -R "${slug}" --json number,state,headRefOid,url \
+          -q '"\(.number) \(.state) \(.headRefOid) \(.url)"' </dev/null 2>/dev/null)" || { PR_STATE="UNKNOWN"; return 0; }
       elif [[ "${branch}" != "-" ]]; then
-        out="$(gh pr list -R "${slug}" --head "${branch}" --state all --limit 20 --json number,state,headRefOid \
+        out="$(gh pr list -R "${slug}" --head "${branch}" --state all --limit 20 --json number,state,headRefOid,url \
           -q '(map(select(.state == "OPEN")) + map(select(.state == "MERGED")) + map(select(.state == "CLOSED")))[0] // empty
-              | "\(.number) \(.state) \(.headRefOid)"' </dev/null 2>/dev/null)" || { PR_STATE="UNKNOWN"; return 0; }
+              | "\(.number) \(.state) \(.headRefOid) \(.url)"' </dev/null 2>/dev/null)" || { PR_STATE="UNKNOWN"; return 0; }
       fi
       ;;
     gitlab)
       { has glab && has jq; } || { PR_STATE="UNKNOWN"; return 0; }
       if [[ -n "${num}" ]]; then
         out="$(glab mr view "${num}" -R "${slug}" -F json </dev/null 2>/dev/null \
-          | jq -r '"\(.iid) \(.state) \(.sha)"')" || { PR_STATE="UNKNOWN"; return 0; }
+          | jq -r '"\(.iid) \(.state) \(.sha) \(.web_url)"')" || { PR_STATE="UNKNOWN"; return 0; }
       elif [[ "${branch}" != "-" ]]; then
         out="$(glab mr list -R "${slug}" -s "${branch}" -A -F json </dev/null 2>/dev/null \
           | jq -r '(map(select(.state == "opened")) + map(select(.state == "merged")) + map(select(.state != "opened" and .state != "merged")))[0] // empty
-                   | "\(.iid) \(.state) \(.sha)"')" || { PR_STATE="UNKNOWN"; return 0; }
+                   | "\(.iid) \(.state) \(.sha) \(.web_url)"')" || { PR_STATE="UNKNOWN"; return 0; }
       fi
       ;;
     *) return 0 ;;
   esac
   [[ -n "${out}" ]] || return 0
-  read -r PR_NUM PR_STATE PR_HEAD <<<"${out}"
+  read -r PR_NUM PR_STATE PR_HEAD PR_URL <<<"${out}"
+  if [[ "${PR_HEAD}" == http* && -z "${PR_URL}" ]]; then
+    PR_URL="${PR_HEAD}"
+    PR_HEAD="-"
+  fi
+  [[ "${PR_URL}" == https://* || "${PR_URL}" == http://* ]] || PR_URL="-"
   case "${PR_STATE}" in
     OPEN | opened) PR_STATE="OPEN" ;;
     MERGED | merged) PR_STATE="MERGED" ;;
@@ -531,6 +539,7 @@ for container in "${CONTAINERS[@]}"; do
     PR_NUM="-"
     PR_STATE="NONE"
     PR_HEAD="-"
+    PR_URL="-"
 
     if [[ "${prunable}" -eq 1 || ! -d "${wt}" ]]; then
       action=delete
@@ -610,9 +619,9 @@ for container in "${CONTAINERS[@]}"; do
         reason="${reason}, held back: $(plural "${running}" container) running"
       fi
     fi
-    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
       "${container}" "${repo}" "${wt}" "${name}" "${branch}" "${head}" "${action}" "${reason}" \
-      "${PR_NUM}" "${PR_STATE}" "${age}" "${dirty}" "${unpushed}" "${projects:--}" "${PR_HEAD}" >>"${TMP}/worktrees.tsv"
+      "${PR_NUM}" "${PR_STATE}" "${age}" "${dirty}" "${unpushed}" "${projects:--}" "${PR_HEAD}" "${PR_URL}" >>"${TMP}/worktrees.tsv"
   done 3<"${TMP}/list.tsv"
 done
 
@@ -706,7 +715,7 @@ unattended_report() {
   fi
   echo "Needs your answer"
   asks="$(
-    awk -F'\t' '$7 == "ask" { printf "  %s/%s  %s\n", $2, $4, $8 }' "${TMP}/worktrees.tsv"
+    awk -F'\t' '$7 == "ask" { printf "  %s/%s  %s\n", $2, $4, $8; if ($16 ~ /^https?:\/\//) printf "    %s\n", $16 }' "${TMP}/worktrees.tsv"
     awk -F'\t' '$2 == "ask" { printf "  Compose project %s  %s\n", $1, $3 }' "${TMP}/orphans.tsv"
   )"
   if [[ -n "${asks}" ]]; then
@@ -870,10 +879,11 @@ archive_gone_worktree() {
 }
 
 show_gone_worktree() {
-  local gd="$1" wt="$2" branch="$3" reason="$4" projects="$5" pr_head="$6" p lines total
+  local gd="$1" wt="$2" branch="$3" reason="$4" projects="$5" pr_head="$6" pr_url="$7" p lines total
   echo "  folder    ${wt} (already gone)"
   echo "  branch    ${branch}"
   echo "  why       ${reason}"
+  [[ "${pr_url}" == "-" ]] || echo "  pr        ${pr_url}"
   if [[ "${DOCKER}" -eq 1 && "${projects}" != "-" ]]; then
     for p in ${projects//,/ }; do
       echo "  docker    $(project_summary "${p}")"
@@ -897,10 +907,11 @@ view_gone_worktree() {
 }
 
 show_worktree() {
-  local wt="$1" branch="$2" reason="$3" projects="$4" review="$5" pr_head="$6" p lines total
+  local wt="$1" branch="$2" reason="$3" projects="$4" review="$5" pr_head="$6" pr_url="$7" p lines total
   echo "  folder    ${wt}"
   echo "  branch    ${branch/#-/detached}"
   echo "  why       ${reason}"
+  [[ "${pr_url}" == "-" ]] || echo "  pr        ${pr_url}"
   echo "  disk      $(du -sh "${wt}" 2>/dev/null | cut -f1 | tr -d ' ')"
   if [[ "${DOCKER}" -eq 1 && "${projects}" != "-" ]]; then
     for p in ${projects//,/ }; do
@@ -935,26 +946,42 @@ view_worktree() {
   } 2>/dev/null | ${PAGER:-less -R} >/dev/tty
 }
 
-echo "Removing what is safe to remove"
-while IFS=$'\t' read -r container repo wt name branch head action reason pr_num pr_state age dirty unpushed projects pr_head <&3; do
-  [[ "${action}" == "delete" ]] || continue
-  echo "  ${repo}/${name}"
-  if delete_worktree "${container}" "${wt}" "${branch}" "${projects}"; then
-    REMOVED_AUTO=$((REMOVED_AUTO + 1))
-    echo "${repo}/${name}" >>"${TMP}/removed"
-  fi
-done 3<"${TMP}/worktrees.tsv"
-while IFS=$'\t' read -r p action reason <&3; do
-  [[ "${action}" == "delete" ]] || continue
-  echo "  Compose project ${p}"
-  remove_project "${p}"
-  ORPHANS_REMOVED=$((ORPHANS_REMOVED + 1))
-  echo "Compose project ${p}" >>"${TMP}/removed"
-done 3<"${TMP}/orphans.tsv"
+remove_safe_worktrees() {
+  local container repo wt name branch head action reason pr_num pr_state age dirty unpushed projects pr_head pr_url
+  while IFS=$'\t' read -r container repo wt name branch head action reason pr_num pr_state age dirty unpushed projects pr_head pr_url <&3; do
+    [[ "${action}" == "delete" ]] || continue
+    echo "  ${repo}/${name}"
+    if delete_worktree "${container}" "${wt}" "${branch}" "${projects}"; then
+      REMOVED_AUTO=$((REMOVED_AUTO + 1))
+      echo "${repo}/${name}" >>"${TMP}/removed"
+    fi
+  done 3<"${TMP}/worktrees.tsv"
+}
+
+remove_safe_orphans() {
+  local p action reason
+  while IFS=$'\t' read -r p action reason <&3; do
+    [[ "${action}" == "delete" ]] || continue
+    echo "  Compose project ${p}"
+    remove_project "${p}"
+    ORPHANS_REMOVED=$((ORPHANS_REMOVED + 1))
+    echo "Compose project ${p}" >>"${TMP}/removed"
+  done 3<"${TMP}/orphans.tsv"
+}
 
 ASK_TOTAL="$(awk -F'\t' '$7 == "ask"' "${TMP}/worktrees.tsv" | wc -l | tr -d ' ')"
 ASK_ORPHANS="$(awk -F'\t' '$2 == "ask"' "${TMP}/orphans.tsv" | wc -l | tr -d ' ')"
 QUIT=0
+WT_ANSWER=()
+ORPHAN_ANSWER=()
+CHOSEN_WT=0
+CHOSEN_ORPHANS=0
+
+if [[ "${INTERACTIVE}" -eq 0 ]]; then
+  echo "Removing what is safe to remove"
+  remove_safe_worktrees
+  remove_safe_orphans
+fi
 
 if [[ $((ASK_TOTAL + ASK_ORPHANS)) -gt 0 && "${INTERACTIVE}" -eq 0 ]]; then
   echo ""
@@ -967,8 +994,38 @@ if [[ $((ASK_TOTAL + ASK_ORPHANS)) -gt 0 && "${INTERACTIVE}" -eq 0 ]]; then
   QUIT=1
 fi
 
+if [[ $((ASK_TOTAL + ASK_ORPHANS)) -gt 0 && "${INTERACTIVE}" -eq 1 ]]; then
+  echo "wt-prune: preparing $(plural $((ASK_TOTAL + ASK_ORPHANS)) question)"
+  line=0
+  while IFS=$'\t' read -r container repo wt name branch head action reason pr_num pr_state age dirty unpushed projects pr_head pr_url <&3; do
+    line=$((line + 1))
+    [[ "${action}" == "ask" ]] || continue
+    review=0
+    if [[ "${branch}" == "-" && "${name}" =~ ${PR_RE} ]]; then
+      review=1
+    fi
+    if [[ -d "${wt}" ]]; then
+      show_worktree "${wt}" "${branch}" "${reason}" "${projects}" "${review}" "${pr_head}" "${pr_url}" >"${TMP}/detail.${line}"
+    else
+      show_gone_worktree "${container}/.git" "${wt}" "${branch}" "${reason}" "${projects}" "${pr_head}" "${pr_url}" >"${TMP}/detail.${line}"
+    fi
+  done 3<"${TMP}/worktrees.tsv"
+  line=0
+  while IFS=$'\t' read -r p action reason <&3; do
+    line=$((line + 1))
+    [[ "${action}" == "ask" ]] || continue
+    {
+      echo "  why       ${reason}"
+      echo "  docker    $(project_summary "${p}")"
+      awk -F'\t' -v p="${p}" '$2 == p { printf "    volume %s (%s)\n", $1, $3 }' "${TMP}/volumes.tsv"
+    } >"${TMP}/orphan.${line}"
+  done 3<"${TMP}/orphans.tsv"
+fi
+
 index=0
-while IFS=$'\t' read -r container repo wt name branch head action reason pr_num pr_state age dirty unpushed projects pr_head <&3; do
+line=0
+while IFS=$'\t' read -r container repo wt name branch head action reason pr_num pr_state age dirty unpushed projects pr_head pr_url <&3; do
+  line=$((line + 1))
   [[ "${action}" == "ask" ]] || continue
   index=$((index + 1))
   if [[ "${QUIT}" -eq 1 ]]; then
@@ -981,36 +1038,14 @@ while IFS=$'\t' read -r container repo wt name branch head action reason pr_num 
   fi
   echo ""
   echo "[${index}/${ASK_TOTAL}] ${repo}/${name}"
-  if [[ -d "${wt}" ]]; then
-    show_worktree "${wt}" "${branch}" "${reason}" "${projects}" "${review}" "${pr_head}"
-  else
-    show_gone_worktree "${container}/.git" "${wt}" "${branch}" "${reason}" "${projects}" "${pr_head}"
-  fi
+  cat "${TMP}/detail.${line}"
   while true; do
     printf '  [d]elete  [a]rchive, then delete  [k]eep  [v]iew changes  [q]uit: '
     read -r choice </dev/tty || choice=q
     case "${choice}" in
-      d)
-        if delete_worktree "${container}" "${wt}" "${branch}" "${projects}"; then
-          echo "  removed"
-          REMOVED_ASKED=$((REMOVED_ASKED + 1))
-        fi
-        break
-        ;;
-      a)
-        if [[ -d "${wt}" ]]; then
-          archiver=(archive_worktree "${repo}" "${wt}" "${branch}" "${head}" "${pr_num}" "${review}" "${pr_head}")
-        else
-          archiver=(archive_gone_worktree "${repo}" "${container}" "${wt}" "${branch}" "${head}" "${pr_num}")
-        fi
-        if ! "${archiver[@]}"; then
-          echo "  could not save the work, so the worktree stays"
-          echo "${wt}" >>"${TMP}/failed"
-        elif delete_worktree "${container}" "${wt}" "${branch}" "${projects}"; then
-          echo "  removed"
-          REMOVED_ASKED=$((REMOVED_ASKED + 1))
-          ARCHIVED=$((ARCHIVED + 1))
-        fi
+      d | a)
+        WT_ANSWER[${line}]="${choice}"
+        CHOSEN_WT=$((CHOSEN_WT + 1))
         break
         ;;
       k)
@@ -1035,23 +1070,22 @@ while IFS=$'\t' read -r container repo wt name branch head action reason pr_num 
 done 3<"${TMP}/worktrees.tsv"
 
 index=0
+line=0
 while IFS=$'\t' read -r p action reason <&3; do
+  line=$((line + 1))
   [[ "${action}" == "ask" ]] || continue
   index=$((index + 1))
   [[ "${QUIT}" -eq 1 ]] && continue
   echo ""
   echo "[${index}/${ASK_ORPHANS}] Compose project ${p}"
-  echo "  why       ${reason}"
-  echo "  docker    $(project_summary "${p}")"
-  awk -F'\t' -v p="${p}" '$2 == p { printf "    volume %s (%s)\n", $1, $3 }' "${TMP}/volumes.tsv"
+  cat "${TMP}/orphan.${line}"
   while true; do
     printf '  [d]elete  [k]eep  [q]uit: '
     read -r choice </dev/tty || choice=q
     case "${choice}" in
       d)
-        remove_project "${p}"
-        echo "  removed"
-        ORPHANS_REMOVED=$((ORPHANS_REMOVED + 1))
+        ORPHAN_ANSWER[${line}]=d
+        CHOSEN_ORPHANS=$((CHOSEN_ORPHANS + 1))
         break
         ;;
       k) break ;;
@@ -1063,6 +1097,59 @@ while IFS=$'\t' read -r p action reason <&3; do
     esac
   done
 done 3<"${TMP}/orphans.tsv"
+
+if [[ "${INTERACTIVE}" -eq 1 ]]; then
+  if [[ $((ASK_TOTAL + ASK_ORPHANS)) -gt 0 ]]; then
+    echo ""
+  fi
+  echo "Removing what is safe to remove"
+  remove_safe_worktrees
+  if [[ "${CHOSEN_WT}" -gt 0 ]]; then
+    echo "Removing what you chose"
+  fi
+  line=0
+  while IFS=$'\t' read -r container repo wt name branch head action reason pr_num pr_state age dirty unpushed projects pr_head pr_url <&3; do
+    line=$((line + 1))
+    choice="${WT_ANSWER[${line}]:-}"
+    [[ -n "${choice}" ]] || continue
+    review=0
+    if [[ "${branch}" == "-" && "${name}" =~ ${PR_RE} ]]; then
+      review=1
+    fi
+    if [[ "${choice}" == "a" ]]; then
+      echo "  ${repo}/${name}, saving the work first"
+      if [[ -d "${wt}" ]]; then
+        archiver=(archive_worktree "${repo}" "${wt}" "${branch}" "${head}" "${pr_num}" "${review}" "${pr_head}")
+      else
+        archiver=(archive_gone_worktree "${repo}" "${container}" "${wt}" "${branch}" "${head}" "${pr_num}")
+      fi
+      if ! "${archiver[@]}"; then
+        echo "  could not save the work, so the worktree stays"
+        echo "${wt}" >>"${TMP}/failed"
+      elif delete_worktree "${container}" "${wt}" "${branch}" "${projects}"; then
+        REMOVED_ASKED=$((REMOVED_ASKED + 1))
+        ARCHIVED=$((ARCHIVED + 1))
+      fi
+    else
+      echo "  ${repo}/${name}"
+      if delete_worktree "${container}" "${wt}" "${branch}" "${projects}"; then
+        REMOVED_ASKED=$((REMOVED_ASKED + 1))
+      fi
+    fi
+  done 3<"${TMP}/worktrees.tsv"
+  if [[ "${CHOSEN_ORPHANS}" -gt 0 ]] || awk -F'\t' '$2 == "delete" { found = 1 } END { exit !found }' "${TMP}/orphans.tsv"; then
+    echo "Removing Compose projects with no worktree"
+  fi
+  remove_safe_orphans
+  line=0
+  while IFS=$'\t' read -r p action reason <&3; do
+    line=$((line + 1))
+    [[ -n "${ORPHAN_ANSWER[${line}]:-}" ]] || continue
+    echo "  Compose project ${p}"
+    remove_project "${p}"
+    ORPHANS_REMOVED=$((ORPHANS_REMOVED + 1))
+  done 3<"${TMP}/orphans.tsv"
+fi
 
 DISK_AFTER="$(df -k "${CONTAINERS[0]}" | awk 'NR == 2 { print $4 }')"
 docker_totals >"${TMP}/docker-after.tsv"
@@ -1097,3 +1184,5 @@ fi
 if [[ "${UNATTENDED}" -eq 1 ]]; then
   unattended_report "Removed" "${TMP}/removed"
 fi
+exit
+}
