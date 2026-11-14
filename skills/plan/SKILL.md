@@ -51,6 +51,23 @@ to the Claude critic alone, and the gate says so. The user may change it to any 
 step 2 accepts. Write it to the plan's `### References` as chosen, unresolved: `/implement`
 resolves the models when it starts, and each critique sizes its own effort to its target.
 
+**Jira epic:** `/implement` opens one Jira ticket per PR, under the epic the plan names. Find
+that epic here, through the Atlassian connector's Jira tools:
+
+1. An epic or ticket named in the user's words or a research file wins. Record a named ticket as
+   the plan's `**Ticket**:`. Its parent becomes the epic.
+2. Otherwise, search the open epics for two or three terms from the work, starting in `ASAVS`:
+   ```
+   project = ASAVS AND issuetype = Epic AND statusCategory != Done AND text ~ "<terms>"
+   ```
+   Propose the closest match and name the terms that matched. Propose an epic in another project
+   only where the work belongs to that team.
+3. Otherwise, fall back to `ASAVS-290` (KTLO Vendor Storefront), in project `ASAVS`.
+
+Record `none` where no repository in scope is ASAVS work, such as a personal repository.
+`/implement` then creates no ticket. Where no Jira connector answers, say so at the gate and
+propose the fallback.
+
 **Target repos:** infer, and show your evidence for each. Draw on the current repo and on the
 repos a research file's target list names. Draw on repos implied by `file:line` references in
 findings. Say what you excluded and why.
@@ -72,6 +89,8 @@ low across twenty runs.
 > Before I investigate, confirm or adjust.
 >
 > **Critique:** claude, codex (each vendor's recommended model; effort sized per target)
+>
+> **Jira:** `<EPIC>` — <epic summary> (<why: the matched terms, the named ticket, or the fallback>)
 >
 > | Repo | Why it's in scope | Behind `<default>` |
 > |---|---|---|
@@ -168,6 +187,9 @@ at every round of feedback, so the file stays the record of what the user agreed
 
 One line per repo when more than one is in scope. The path is the container gate A derived, not
 `<container>/main`.
+
+**Jira**: `<EPIC>` — <epic summary>, or `none`
+**Ticket**: `<KEY>`, only where the user named one
 
 ## Overview
 <the outcome we're after, why, and how we will know it was achieved>
@@ -274,6 +296,8 @@ Present the design — the slices, their file scopes, and any constraint that ti
 > **Approve — `plan/<slug>`**
 >
 > **Plan:** `<state>/plans/<slug>/plan.md`
+>
+> **Jira:** `<EPIC>` — <epic summary>
 >
 > | Slice | Files | Constraint |
 > |---|---|---|

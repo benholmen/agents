@@ -13,7 +13,7 @@ Contribute code through pull requests by default. The PR is the unit of contribu
 - **Exceptions:** Skip the PR workflow only when the user **clearly** instructs otherwise. Examples: "commit directly to main", "no PR", "push straight to default branch", `/implement --in main`. If the request is ambiguous, ask once. Otherwise follow this rule.
 - **Branch:** Cut a feature branch from the latest default branch, or from the unmerged branch this work depends on. Name it for the work and prefix it by type: `feat/…`, `fix/…`, `chore/…`. Never commit on the default branch.
 - **Commits:** Only create commits when the user asks or when the PR workflow clearly requires it. No secrets, no `--no-verify`, and no amend unless the user allows it.
-- **Pushes:** Never push or open a PR without explicit approval. Approval for one push does not carry to the next.
+- **Pushes:** Never push or open a PR without explicit approval. Approval for one push does not carry to the next. An approved `/implement` roster is that approval for its milestones' draft PRs, each pushed once its critique completes.
 - **Draft by default:** Open PRs as drafts. Mark ready for review only when the user says so.
 - **Destructive git:** No `reset --hard`, force-push, or history rewrite without explicit approval.
 

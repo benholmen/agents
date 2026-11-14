@@ -193,7 +193,7 @@ flowchart LR
     BC["/bare-convert"]
     M["milestone loop"]
     C["/critique"]
-    PR["draft PRs<br/>one per repo"]
+    PR["draft PRs<br/>one per repo, each with a Jira ticket"]
 
     R -->|"research file"| P
     P -->|"1. implement now"| I
@@ -203,7 +203,7 @@ flowchart LR
     BC -->|"a container per repo"| W
     M -->|"cut a tree per repo"| W
     M -->|"before the landing"| C
-    M --> PR
+    M -->|"after the critique"| PR
     M -->|"next milestone"| M
 ```
 

@@ -107,7 +107,8 @@ Stop on these, and on nothing else:
   census drift
   a critique escalation, C1 to C6
   the roster gate
-  the push gate
+  a failing quality gate or a stale branch, before a push
+  a main-mode push gate
   a worker deviation
   an integration finding that invalidates an open PR
 ```
@@ -120,9 +121,10 @@ Skip anything the `/plan` fork already confirmed — do not re-ask what the user
    `and`. Add slices while that sentence stays true. Open a new milestone once the sentence needs
    an `and`. That is the whole test.
 
-   A milestone may span repositories, and it then lands **one PR per repository it touches**.
-   Each PR title states the milestone's outcome, scoped to its repository. A repository in `main`
-   mode lands a push to its default branch instead of a PR.
+   A milestone may span repositories, and it then lands **one PR per repository it touches**,
+   each with its own Jira ticket. Each PR title states the milestone's outcome, scoped to its
+   repository. A repository in `main` mode lands a push to its default branch instead of a PR,
+   and gets no ticket.
 2. **Order the milestones into a DAG.** Aggregate every slice's `after` constraint onto the
    milestones that hold the two slices. That aggregate is the dependency half of the order.
 
@@ -165,6 +167,13 @@ Skip anything the `/plan` fork already confirmed — do not re-ask what the user
    > **Critique per milestone:** `claude:opus`, `codex:<model>`, from the plan, resolved now. M1
    > `medium` (one rule file), M2 `high` (two skills rewritten).
    >
+   > **Jira:** one ticket per PR, in `ASAVS` under `ASAVS-290` (KTLO Vendor Storefront), assigned
+   > to you, created once each milestone's critique completes. Each PR title takes its ticket as
+   > the scope.
+   >
+   > **Draft PRs:** approving this roster approves each milestone's push and draft PR, made once
+   > its critique completes and its remedies are committed.
+   >
    > Adjust any milestone boundary, model, effort, grouping, or workspace, or approve as proposed.
    >
    > ⏸ waiting on you: approve the roster, or name what to change
@@ -193,6 +202,15 @@ Skip anything the `/plan` fork already confirmed — do not re-ask what the user
    `medium`, an ordinary one `high`, and one that touches auth or a public contract `xhigh`. The
    user can change either line here, and the gate asks nothing else about critique.
 
+   **The Jira line comes from the plan's `**Jira**:` and `**Ticket**:` lines.** This gate is the
+   one place the run asks before it writes to Jira. A plan that records `none` gets a line that
+   says no tickets.
+
+   **Approving the roster approves the draft-PR pushes.** `pr-first-contributions` requires
+   explicit approval before a push, and this gate gives it, for each milestone's draft PRs and
+   nothing more. A `main` repository has no draft to hold its change back, so its push still
+   waits for a gate of its own at step 7.
+
    **Disclose a host that cannot deny git writes.** On Claude, `implement-worker`'s hook denies
    them, so the roster carries no extra line. On Codex, `rules/agent-orchestration.md` says no
    per-worker denial exists. Add a `Sandbox:` line there that names the exposure: two workers in
@@ -203,6 +221,10 @@ Skip anything the `/plan` fork already confirmed — do not re-ask what the user
    ```yaml
    plan: <slug>
    critique: [claude:opus, codex:<model>]
+   jira:
+     epic: <the plan's epic key, or none>
+     ticket: <the plan's named ticket, if any>
+     assignee: <your accountId, from atlassianUserInfo>
    workspace:
      <repo>:
        mode: checkout
@@ -218,6 +240,7 @@ Skip anything the `/plan` fork already confirmed — do not re-ask what the user
            branch: <type>/<slug>-m1
            base: origin/HEAD
            worktree: <set by milestone loop step 1>
+           ticket: <set by milestone loop step 6>
            pr: <set by milestone loop step 7>
        waves:
          - [m1-a]
@@ -238,7 +261,8 @@ Skip anything the `/plan` fork already confirmed — do not re-ask what the user
    `pending` to `running` to `committed`, or to `escalated`. Keys are lowercase.
 
    In `main` mode a repository's `branch` is the default branch, its `base` is the commit the
-   milestone started from, and step 7 adds `head`, the commit it pushed. It records no `pr`.
+   milestone started from, and step 7 adds `head`, the commit it pushed. It records no `ticket`
+   and no `pr`.
 
    Then write one **task spec** per task, at `<state>/plans/<slug>/tasks/<m>-<task>.md`. It
    carries the slices the task covers, their files, their verification, and their proof commands.
@@ -294,7 +318,7 @@ The waves inside one milestone still run their tasks concurrently — that is st
    provisioning script is the common case. Pass that report to the user as it stands, and cut no
    second worktree. The tree it kept is the one the retry reuses.
 
-   **A resumed run may find the worktree still standing.** A run that stopped before its push gate
+   **A resumed run may find the worktree still standing.** A run that stopped before its push
    leaves one behind, and `rules/agent-orchestration.md` carries both tests. Reuse a recorded path
    that holds this milestone's branch, and stop where it holds anything else.
 
@@ -374,31 +398,57 @@ The waves inside one milestone still run their tasks concurrently — that is st
    returns its own ledger, so present them grouped by repository.
 
    **Commit the remedies.** `/critique` applies each accepted fix in this milestone's worktrees,
-   and it leaves them uncommitted. Commit them here, once per repository, before the push gate:
+   and it leaves them uncommitted. Commit them here, once per repository, before the push:
    ```bash
    git add <the paths the ledger's fixes touched>
    git commit -m "fix(<scope>): apply the critique remedies for milestone <m>"
    ```
-   This is the one commit outside a wave join. Skip it, and the push gate counts commits over a
-   dirty tree.
-6. **Gate the push.** `pr-first-contributions` forbids a push without explicit approval, and this
-   gate is where you ask. Re-run its staleness check first.
+   This is the one commit outside a wave join. Skip it, and the push ships the milestone without
+   its remedies.
+6. **Check each repository, then create its ticket.** Re-run `pr-first-contributions`' staleness
+   check and the repository's quality gates. A failure stops the run as `Failed`, before Jira
+   hears of the milestone.
 
-   > **Approve — push milestone `<m>`**
+   Then give each repository that opens a PR one ticket:
+
+   - **Reuse a recorded ticket.** A resume finds `milestones.<m>.repos.<repo>.ticket` already set,
+     and creates nothing for that repository. The plan's `**Ticket**:` serves the run's first PR.
+   - **Otherwise, create it** with the Atlassian connector's `createJiraIssue`:
+     ```
+     project      the epic's project
+     parent       jira.epic
+     issueType    Story for a feat PR, Task otherwise
+     summary      the PR title's description, in sentence case
+     assignee     jira.assignee
+     description  TMP-862's description, with $DESCRIPTION replaced by the milestone's outcome
+                  and what this repository's diff changes
+     ```
+     Read TMP-862 once per run, because its owners edit it. Leave its placeholder sections as
+     they are. Filling them is the user's work.
+   - **Record the key** as `ticket` before you create the next one, so a stop between two
+     creates leaves no ticket unrecorded.
+
+   **A milestone that spans repositories gets one ticket per PR, never one for the milestone.**
+   Once all of its tickets exist, add a line naming its sibling keys to each ticket's description
+   with `editJiraIssue`, so the tickets point at each other the way the PRs do.
+
+   `jira.epic: none` skips the tickets, and a `main` repository gets none.
+7. **Push and open one draft PR per repository the milestone touches.** The roster gate already
+   approved this, so no gate stops here. Follow `pr-first-contributions`, which owns the draft
+   flag, the stacked-PR base, and the title spec. The ticket key is the title's scope, as in
+   `fix(ASAVS-1222): stop duplicate delivery_items`, and the body links the ticket. Update an open
+   PR rather than opening a second one. Record each PR under `milestones.<m>.repos.<repo>.pr`.
+
+   **A `main` repository waits for its own gate, then pushes its default branch:**
+
+   > **Approve — push `<repo>` to `<default>`**
    >
-   > | Repo | Commits | Lands on | PR title |
-   > |---|---|---|---|
-   > | `<repo>` | <N> | base `<branch>` | <the PR title> |
-   > | `<repo>` | <N> | `<default>`, no PR | |
+   > **Commits:** <N>, `<base>..<head>`
    >
    > **Quality gates:** <results>
    >
-   > ⏸ waiting on you: approve the push for milestone `<m>`
-7. **Push and open one PR per repository the milestone touches.** Follow
-   `pr-first-contributions`, which owns the stacked-PR base and the title spec. Update an open PR
-   rather than opening a second one. Record each PR under `milestones.<m>.repos.<repo>.pr`.
+   > ⏸ waiting on you: approve the push of `<repo>` to `<default>`
 
-   **A `main` repository pushes its default branch and opens no PR:**
    ```bash
    git -C "<checkout>" push origin "<default>"
    ```
@@ -432,11 +482,11 @@ The waves inside one milestone still run their tasks concurrently — that is st
    >
    > <the milestone's outcome, in one sentence>
    >
-   > | Repo | Result | Commits | Base |
-   > |---|---|---|---|
-   > | `<repo>` | <PR url> | <N> | `<the default branch>` |
-   > | `<repo>` | <PR url> | <N> | `<the predecessor milestone's branch>` |
-   > | `<repo>` | pushed to `<default>` | <N> | `<base>..<head>` |
+   > | Repo | Ticket | Result | Commits | Base |
+   > |---|---|---|---|---|
+   > | `<repo>` | <ticket url> | <PR url> | <N> | `<the default branch>` |
+   > | `<repo>` | <ticket url> | <PR url> | <N> | `<the predecessor milestone's branch>` |
+   > | `<repo>` | | pushed to `<default>` | <N> | `<base>..<head>` |
    >
    > - **Quality gates:** <results>
    > - **Critique:** <N> findings, <M> presented; <model> · <effort> per critic, as it ran
@@ -531,7 +581,7 @@ first, and you remove both halves of that comparison.
 
 ## Notes
 
-- Never commit to the default branch outside `main` mode; never push or open a PR without
-  explicit approval
+- Never commit to the default branch outside `main` mode; push only what the roster gate or a
+  `main` push gate approved, and open every PR as a draft
 - If the plan turns out to be wrong, fix the plan and re-approve. Never let implementation
   quietly diverge from the approved record

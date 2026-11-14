@@ -262,7 +262,7 @@ rather than the rare one.
 
 **Test the recorded worktree path too.** Where the path exists and holds this milestone's branch,
 reuse it and cut nothing. Where it holds anything else, stop and report both paths. A run that
-stopped before its push gate leaves its worktree standing on unpushed commits, so a resume finds
+stopped before its push leaves its worktree standing on unpushed commits, so a resume finds
 the path already taken, and `git worktree add` exits 128 there.
 
 **Test the layout before you cut anything.** A plain clone has no bare layout, so `/worktree`
