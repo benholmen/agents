@@ -58,9 +58,9 @@ indirectly, so this is the one target you assemble:
 
 The target is every one of those diffs together. **Use the repository's git directory, never a
 worktree.** `<container>/.git` is the bare repository when converted and the ordinary `.git` in a
-plain clone. An earlier milestone's teardown removed the worktree of every repository the last
-milestone did not touch. A git directory reads a branch without a checkout, so it reaches all of
-them.
+plain clone. An earlier milestone's worktree may already be gone, because `wt-prune.sh` removes a
+tree once its PR closes. A git directory reads a branch without a checkout, so it reaches
+all of them.
 
 Stop and say so where an entry is absent, or where a branch does not resolve. A partial target
 answers `Plan completeness` wrongly, and that lens is why this pass exists.

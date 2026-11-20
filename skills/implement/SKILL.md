@@ -500,12 +500,13 @@ The waves inside one milestone still run their tasks concurrently — that is st
 10. **Tear down and clean up.** Do all three, in this order:
     ```
     stop any worker of this milestone that still runs, with TaskStop
-    container: stop the stack and remove the worktree, per /worktree's teardown block
+    container: stop the stack, per /worktree's stop block, and keep the worktree
     set the milestone's status to landed in state.yml
     ```
-    The branch lives on the remote once the push succeeds, so the worktree is disposable. A worker
-    still running here would write into a tree that teardown removes. A `checkout` or `main` tree
-    stays as it is, because it is yours, and the next milestone branches from there.
+    The worktree stays while the milestone's PR is open, so a follow-up on that PR needs no new
+    provision. `~/.claude/bin/wt-prune.sh` removes it once the PR closes. A worker still running
+    here would write into a tree after its push. A `checkout` or `main` tree stays as it is,
+    because it is yours, and the next milestone branches from there.
 
 Then start the next milestone.
 
@@ -560,8 +561,9 @@ within the plan's intent should. It escalates when the fix would require departi
 
 ## Close
 
-Close the run after the last milestone lands. Every milestone pushed its own PRs and tore down
-its own worktrees, and step 9 reported the integration critique. Nothing here opens a PR.
+Close the run after the last milestone lands. Every milestone pushed its own PRs and stopped its
+own stacks, and step 9 reported the integration critique. Nothing here opens a PR, and nothing here
+removes a worktree whose PR is still open.
 
 1. Confirm no worker of this run still runs. Stop any that does, with `TaskStop`.
 2. `git worktree prune` in each container, per `rules/agent-orchestration.md`.

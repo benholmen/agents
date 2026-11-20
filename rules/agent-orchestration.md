@@ -229,13 +229,14 @@ worktree per milestone and per repository, from a bare-plus-worktrees layout, at
                        reuse <worktree>, cut nothing                    the path already holds <branch>
                      base = origin/HEAD, or the predecessor milestone's branch when stacked
   record             state.yml: milestones.<m>.repos.<repo>.branch and .worktree
-  remove             at milestone close, after a successful push
+  stop               the stack at milestone close; the worktree stays while its PR is open
+  remove             once the PR merges or closes, by ~/.claude/bin/wt-prune.sh
   sweep              git worktree prune at run close
 ```
 
 The record carries the repository, because one milestone cuts one worktree per repository.
-Without it the second cut overwrites the first, and teardown then leaks a worktree with its stack
-still running.
+Without it the second cut overwrites the first, and milestone close then misses a stack, which
+keeps running.
 
 **Test the branch and the path before you cut.** `git worktree add -b` fails outright when the
 branch already exists. `git worktree add` fails the same way when another worktree already holds
@@ -254,11 +255,11 @@ the path. Run both tests, because a stopped run can leave either one behind.
   explains it. Rename this plan's milestone, and escalate. Renaming the other plan's branch breaks
   its open PR.
 
-**The branch carries the plan slug because teardown outlives the plan.** Teardown keeps the
-branch, and the close step archives the plan's directory. Drop the prefix, and a second plan that
-reuses a milestone slug finds a branch no active plan names. It then escalates over a PR that
-merged and closed. `/implement` labels milestones `m1`, `m2`, and `m3`, so that is the common case
-rather than the rare one.
+**The branch carries the plan slug because the branch outlives the plan.** The branch stays until
+its PR closes, and the close step archives the plan's directory before that. Drop the prefix, and
+a second plan that reuses a milestone slug finds a branch no active plan names. It then escalates
+over a PR that merged and closed. `/implement` labels milestones `m1`, `m2`, and `m3`, so that is
+the common case rather than the rare one.
 
 **Test the recorded worktree path too.** Where the path exists and holds this milestone's branch,
 reuse it and cut nothing. Where it holds anything else, stop and report both paths. A run that
@@ -269,8 +270,11 @@ the path already taken, and `git worktree add` exits 128 there.
 refuses it and prints the conversion command rather than a worktree path. `/implement` sends a
 plain clone to `checkout` before it gets that far.
 
-The worktree is disposable once the push succeeds, because the branch then lives on the remote.
-Remove it at milestone close.
+**The worktree stays while its PR is open.** Follow-up work on that PR, such as a review fix, a
+port, or a re-critique, runs in the standing tree. Cut none for it. Provisioning a tree again
+costs minutes and a full install, and a standing tree costs only disk, so err toward keeping one.
+Milestone close stops the tree's stack. `~/.claude/bin/wt-prune.sh` removes the tree once its PR
+merges or closes.
 
 **Why a worktree.** The user sits on a branch in their own tree. A worker that cannot take that
 branch cannot trample the user's working state. Git refuses to check out one branch in two
@@ -314,5 +318,6 @@ before it returns. Three things differ from Claude, and the roster gate disclose
 | Committing a wave without the declared-path check | An undeclared write rides into a task's commit |
 | A worker writing `state.yml` | Two writers make one file inconsistent |
 | Loosening a flag after a failed headless launch | The retry loop reaches a bypass flag instead of escalating |
-| Cutting a milestone branch with `-b` and no existence test | A resumed run fails outright, because teardown left the branch behind |
+| Cutting a milestone branch with `-b` and no existence test | A resumed run fails outright, because a stopped run left the branch behind |
 | Cutting onto a recorded worktree path with no existence test | A stopped run leaves the worktree standing, so `git worktree add` exits 128 |
+| Removing a worktree while its PR is open | The next follow-up on that PR provisions the whole tree again |

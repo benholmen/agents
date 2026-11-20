@@ -1,17 +1,18 @@
 ---
 name: worktree
-description: Cut, provision, and tear down one milestone worktree in a bare-plus-worktrees repository
+description: Cut, provision, and stop one milestone worktree in a bare-plus-worktrees repository
 when_to_use: >-
-  When a milestone needs a working tree of its own, or when a closed milestone gives one back.
-  Trigger phrases: "cut a worktree", "provision this worktree", "tear the milestone down".
+  When a milestone needs a working tree of its own, or when a milestone closes and its stack
+  stops. Trigger phrases: "cut a worktree", "provision this worktree", "stop the milestone's
+  stack".
   Also invoked by the implement skill, once per repository per milestone.
-argument-hint: "[cut | provision | teardown] [container] [milestone] [branch] [base]"
+argument-hint: "[cut | provision | stop] [container] [milestone] [branch] [base]"
 ---
 
 # Worktree
 
-Give every milestone worker its own working tree. Three modes: **cut**, **provision**, and
-**teardown**.
+Give every milestone worker its own working tree, and keep it while its PR is open. Three modes:
+**cut**, **provision**, and **stop**.
 
 A milestone loop needs this before it can run. A fresh worktree holds no `.env`, no
 `auth.json`, no `vendor/`, and no `node_modules/`. It also cannot start a container stack
@@ -41,8 +42,8 @@ Every milestone worktree carries the plan slug as a prefix. The plan slug leads 
 timestamp, so one plan's worktrees sort together and two plans never interleave. The stable
 worktree keeps the name `main`, and it carries no prefix.
 
-The branch carries the plan slug too: `<type>/<plan-slug>-<milestone-slug>`. Teardown keeps the
-branch, and `/implement`'s close step archives the `state.yml` that names it. The prefix is
+The branch carries the plan slug too: `<type>/<plan-slug>-<milestone-slug>`. The branch outlives
+`/implement`'s close step, which archives the `state.yml` that names it. The prefix is
 therefore what tells a resume from another plan's leftover. `rules/agent-orchestration.md` states
 that reasoning once.
 
@@ -286,7 +287,7 @@ for every service its base file declares.
 Isolation therefore needs no naming convention inside the stack. Two milestones can hold a
 bucket, a topic, or a database of the same name. Neither project can see the other's.
 
-The milestone owns those volumes, which is why teardown removes them.
+The milestone owns those volumes, which is why `wt-prune.sh` removes them with the tree.
 
 ## The clone helper
 
@@ -311,44 +312,29 @@ clone would otherwise consume the full size of the source with no warning.
 A clone costs time by file count rather than by bytes, and it consumes no space until the copy
 diverges.
 
-## Teardown
+## Stop
 
-Tear the stack down at milestone close. Remove the worktree after the push succeeds.
+Stop the stack at milestone close, and keep the worktree. Follow-up work on the PR, such as a
+review fix, a port, or a re-critique, runs in this tree and needs no second provision.
 
 ```bash
 COMPOSE_PROJECT_NAME="<repo>-<plan-slug>-<milestone-slug>" docker compose \
   --project-directory "<worktree>" \
   -f "<worktree>/docker-compose.yml" \
-  -f "<worktree>/docker-compose.worktree.yml" down -v --remove-orphans
+  -f "<worktree>/docker-compose.worktree.yml" down --remove-orphans
 ```
 
-**Every path here is absolute, and that is load-bearing.** Teardown's callers reach this block
-from somewhere else, and none of them sets a working directory. A relative `-f` then finds no
-file, or it finds another repository's stack.
+**Every path here is absolute, and that is load-bearing.** Stop's callers reach this block from
+somewhere else, and none of them sets a working directory. A relative `-f` then finds no file, or
+it finds another repository's stack.
 
-`down -v` removes the named volumes, and `--remove-orphans` removes a container that the
-current file no longer declares. The milestone owns both, so neither removal reaches another
-stack.
+`down` without `-v` removes the containers and the network and keeps the named volumes, so the
+next gate starts the stack again with its data in place.
 
-**Check that the tree holds nothing to lose, then force the removal.**
+## Removal
 
-```bash
-git -C "<worktree>" rev-list --count '@{upstream}..HEAD'
-git -C "<worktree>" status --porcelain
-```
-
-The first must return 0, which proves the push carried every commit. The second must list only
-paths the provisioning contract wrote. Stop and report any other line.
-
-```bash
-git -C "<container>/main" worktree remove --force "<worktree>"
-```
-
-**`--force` is mandatory here, not a fallback.** Plain `git worktree remove` refuses a tree
-holding a modified tracked file, or an untracked file the repository does not ignore. The
-generated `docker-compose.worktree.yml` is exactly such a file, so the plain form exits 128 on
-the first provisioned repository. Verified on git 2.50.1.
-
-`--force` removes the tree and the `worktree list` entry together, so teardown needs no prune.
-The rule sweeps with `git worktree prune` at run close. The branch survives the removal, and it
-lives on the remote once the push succeeds, so the worktree is disposable.
+`~/.claude/bin/wt-prune.sh` removes a worktree once its PR merges or closes, with its stack, its
+volumes, the images its stack built, and its local branch. A LaunchAgent runs it once a day, and
+it asks before it removes anything that would lose work. To remove a tree sooner, run it by hand
+with the container: `~/.claude/bin/wt-prune.sh <container>`. Never remove a worktree whose PR is
+still open.

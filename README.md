@@ -148,7 +148,7 @@ paraphrase it, because a paraphrase drifts from the rule it describes.
 | [`/research`](skills/research/SKILL.md) | Investigate a codebase with parallel agents and write the findings to a research file | you or the agent |
 | [`/critique`](skills/critique/SKILL.md) | Adversarial multi-model review of a diff, plan, files, or PR | you or the agent |
 | [`/grill`](skills/grill/SKILL.md) | Interrogate a decision one question at a time | you or the agent |
-| [`/worktree`](skills/worktree/SKILL.md) | Cut, provision, and tear down one milestone worktree | you or the agent |
+| [`/worktree`](skills/worktree/SKILL.md) | Cut, provision, and stop one milestone worktree | you or the agent |
 | [`/plan`](skills/plan/SKILL.md) | Research, grill, and produce a plan in one plan file | you or the agent |
 | [`/implement`](skills/implement/SKILL.md) | Compose a plan into milestones, and ship each one as its own PRs | you or the agent |
 | [`/gws`](skills/gws/SKILL.md) | Read and change Google Drive, Docs, Sheets, and Slides files through the `gws` CLI | you or the agent |

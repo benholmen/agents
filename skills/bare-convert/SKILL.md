@@ -20,7 +20,7 @@ convert both end there. Run it alone against a container that already exists.
 `rules/agent-orchestration.md` carries the worktree standard. This skill implements that
 standard and invents no second convention.
 
-`/worktree` owns cut, provision, and teardown, and it defines the provisioning contract. This
+`/worktree` owns cut, provision, and stop, and it defines the provisioning contract. This
 skill writes the script that satisfies that contract. It reads the definition there rather than
 restating it.
 

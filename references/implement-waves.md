@@ -87,10 +87,9 @@ record. Never spawn a second worker for one task.
    ```bash
    git -C "<worktree>" status --porcelain
    ```
-   Every path it lists must fall under a declared path of a task in this wave. The paths the
-   provisioning contract wrote are exempt, as `/worktree`'s teardown checks define them. Any other
-   path is a deviation. Stop, and put it to the user under `Blocked` exactly as you would an
-   escalation.
+   Every path it lists must fall under a declared path of a task in this wave. The paths
+   `/worktree`'s provisioning contract writes are exempt. Any other path is a deviation. Stop, and
+   put it to the user under `Blocked` exactly as you would an escalation.
 
 Then commit the wave's tasks. **Commit each task separately, staging only its declared paths:**
 
